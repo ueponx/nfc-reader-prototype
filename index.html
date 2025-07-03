@@ -122,8 +122,9 @@
             successMessageContainer.classList.add('hidden');
 
             // ボタンの状態を初期に戻す
-            scanButton.classList.remove('bg-blue-800'); // スキャン中の色を削除
-            scanButton.classList.add('bg-blue-600', 'hover:bg-blue-700'); // 初期色とホバー効果を再適用
+            // スキャン中の色（bg-purple-600）を削除し、初期色（bg-blue-600）とホバー効果を再適用
+            scanButton.classList.remove('bg-purple-600'); 
+            scanButton.classList.add('bg-blue-600', 'hover:bg-blue-700'); 
             scanButton.disabled = false; // ボタンを有効化
 
             // NDEFReaderインスタンスが存在すれば中止する (クリーンアップ)
@@ -165,16 +166,15 @@
 
             // スキャン開始時のボタンの状態変更
             scanButton.classList.remove('bg-blue-600', 'hover:bg-blue-700'); // 初期色とホバー効果を削除
-            scanButton.classList.add('bg-blue-800'); // スキャン中の色を適用
+            scanButton.classList.add('bg-purple-600'); // スキャン中の色を適用
             scanButton.disabled = true; // ボタンを無効化
 
             // Web NFC APIがサポートされているかチェック
             if ('NDEFReader' in window) {
-                nfcStatus.textContent = 'NFCタグをスマートフォンの背面にかざしてください...'; // タイムアウトの文言を削除
+                nfcStatus.textContent = 'NFCタグをスマートフォンの背面にかざしてください...'; 
                 try {
                     ndefReaderInstance = new NDEFReader(); // インスタンスを保存
 
-                    // タイムアウト処理を削除し、scan()を直接await
                     await ndefReaderInstance.scan(); 
 
                     // scan() が成功した場合のイベントリスナー設定
@@ -227,7 +227,7 @@
 
                         if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') { 
                             showErrorMessage('GASのWebアプリURLが設定されていません。');
-                            resetMessages(); // エラー時はすぐにリセット
+                            resetMessages(); 
                             return;
                         }
 
