@@ -84,6 +84,7 @@
         const selectedFileNameDisplay = document.getElementById('selectedFileName');
 
         let selectedFileContent = null; // 選択されたファイルのコンテンツを保持する変数
+        let ndefReaderInstance = null; // NDEFReaderのインスタンスを保持する変数
 
         // --- メッセージ表示・リセット関数 ---
 
@@ -123,6 +124,12 @@
             scanButton.classList.remove('bg-blue-800'); // スキャン中の色を削除
             scanButton.classList.add('bg-blue-600', 'hover:bg-blue-700'); // 初期色とホバー効果を再適用
             scanButton.disabled = false; // ボタンを有効化
+
+            // NDEFReaderインスタンスが存在すれば中止する (クリーンアップ)
+            if (ndefReaderInstance) {
+                ndefReaderInstance.abort().catch(e => console.error("Failed to abort NDEFReader:", e));
+                ndefReaderInstance = null;
+            }
         }
 
         // --- ファイル入力イベントリスナー ---
@@ -162,12 +169,25 @@
 
             // Web NFC APIがサポートされているかチェック
             if ('NDEFReader' in window) {
-                nfcStatus.textContent = 'NFCタグをかざしてください...';
+                nfcStatus.textContent = 'NFCタグをスマートフォンの背面にかざしてください... (10秒でタイムアウト)';
                 try {
-                    const ndef = new NDEFReader();
-                    await ndef.scan();
+                    ndefReaderInstance = new NDEFReader(); // インスタンスを保存
 
-                    ndef.onreading = async event => {
+                    // タイムアウト用のPromiseを作成 (10秒)
+                    const timeoutPromise = new Promise((resolve, reject) => {
+                        setTimeout(() => {
+                            reject(new Error('NFCスキャンがタイムアウトしました。タグが検出されませんでした。'));
+                        }, 10000); // 10秒 = 10000ミリ秒
+                    });
+
+                    // scan() と timeoutPromise を競合させる
+                    await Promise.race([
+                        ndefReaderInstance.scan(), // NDEFReaderのscan()はPromiseを返す
+                        timeoutPromise
+                    ]);
+
+                    // scan() が成功した場合のイベントリスナー設定 (scan()が解決した後に設定)
+                    ndefReaderInstance.onreading = async event => {
                         nfcStatus.textContent = 'NFCタグを読み取りました！';
                         readContentContainer.classList.remove('hidden');
 
@@ -212,33 +232,26 @@
                         readContentDisplay.innerHTML = contentHtml;
 
                         // --- Google Apps Script (GAS) へのデータ送信 ---
-                        // ここにデプロイしたGASのWebアプリURLを貼り付ける
                         const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbxc34pxlopp11fGMV7EUgNulDLyXc_j8fJ7uacqrhHppx2iOHu28a38-EWmbI-aLqX4/exec'; 
 
-                        if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') { // このチェックはもはや不要ですが、念のため残します
+                        if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') { 
                             showErrorMessage('GASのWebアプリURLが設定されていません。');
-                            resetMessages(); // エラー時はボタンもリセット
+                            resetMessages(); 
                             return;
                         }
 
-                        // GASが期待する `uid` パラメータを生成
-                        // NFC URLが存在すればそれを、なければファイル内容または「URLなし」をuidとする
                         let uidToSend = nfcUrl;
                         if (!uidToSend) {
                             uidToSend = selectedFileContent ? `ファイル内容: ${selectedFileContent.substring(0, 50)}${selectedFileContent.length > 50 ? '...' : ''}` : 'URLなし / ファイルなし';
                         }
-                        // ファイル内容も別途送信したい場合は、GAS側も修正する必要がある
-                        // 現在のGASはuidのみを処理するため、uidToSendに主要な情報を集約
 
                         const payload = {
-                            uid: uidToSend, // GASのdoPostが期待する 'uid'
-                            // fileContent: selectedFileContent, // GAS側で受け取る場合はコメント解除し、GASも修正
-                            // nfcUrl: nfcUrl // GAS側で受け取る場合はコメント解除し、GASも修正
+                            uid: uidToSend, 
                         };
 
                         try {
                             const response = await fetch(gasWebAppUrl, {
-                                method: 'POST', // POSTリクエストを使用
+                                method: 'POST', 
                                 headers: {
                                     'Content-Type': 'application/json'
                                 },
@@ -261,13 +274,11 @@
                         }
                     };
 
-                    ndef.onreadingerror = error => {
-                        // NFCタグを検知したが、読み取りに失敗した場合
+                    ndefReaderInstance.onreadingerror = error => {
                         let errorMessageText = '';
                         if (error.message) {
                             errorMessageText = `NFC読み取りエラー: ${error.message}`;
                         } else {
-                            // error.message が undefined の場合、より具体的なメッセージを表示
                             errorMessageText = 'NFCタグを検知しましたが、内容の読み取りに失敗しました。';
                         }
                         showErrorMessage(errorMessageText);
@@ -276,13 +287,12 @@
                     };
 
                 } catch (error) {
-                    // NFCスキャンを開始できなかった場合（ユーザーが許可しなかった、NFCが無効など）
-                    showErrorMessage(`NFCスキャンを開始できませんでした: ${error.message}`);
-                    nfcStatus.textContent = 'NFCスキャンを開始できませんでした。';
+                    // scan() または timeoutPromise が reject された場合
+                    showErrorMessage(`${error.message}`); // タイムアウトメッセージまたはスキャン開始エラー
+                    nfcStatus.textContent = 'NFCスキャンを停止しました。';
                     resetMessages(); // エラー発生時もボタンの状態をリセット
                 }
             } else {
-                // ブラウザがWeb NFC APIをサポートしていない場合
                 showErrorMessage('お使いのブラウザはWeb NFC APIをサポートしていません。(Android版Chrome推奨)');
                 scanButton.disabled = true;
                 nfcStatus.textContent = 'Web NFC APIが利用できません。';
