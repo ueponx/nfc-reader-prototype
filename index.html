@@ -171,7 +171,8 @@
 
             // Web NFC APIがサポートされているかチェック
             if ('NDEFReader' in window) {
-                nfcStatus.textContent = 'NFCタグをスマートフォンの背面にかざしてください... (10秒でタイムアウト)'; // タイムアウトの文言を再追加
+                // ここを修正: 「NFCタグをスマートフォンにかざしてください…」に変更
+                nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…'; 
                 try {
                     ndefReaderInstance = new NDEFReader(); // インスタンスを保存
 
