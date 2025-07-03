@@ -47,7 +47,7 @@
 
         <!-- Status Message -->
         <p id="nfcStatus" class="mt-6 text-center text-gray-600 text-lg">
-            NFC読み取り準備中...
+            ファイルを選択しスキャンボタンを押してください
         </p>
 
         <!-- Read Content Display -->
@@ -114,7 +114,8 @@
          * ボタンの色を初期状態に戻し、有効化します。
          */
         function resetMessages() {
-            nfcStatus.textContent = 'NFC読み取り準備中...';
+            // 初期状態のテキストに変更
+            nfcStatus.textContent = 'ファイルを選択しスキャンボタンを押してください';
             readContentDisplay.innerHTML = '';
             readContentContainer.classList.add('hidden');
             errorMessageContainer.classList.add('hidden');
@@ -270,7 +271,16 @@
                             console.error('GASへのアクセスエラー:', error);
                             showErrorMessage(`データ送信エラー: ${error.message}`);
                         } finally {
-                            resetMessages(); // 処理完了後にボタンの状態をリセット
+                            // 処理完了後にボタンの状態をリセット
+                            // 成功・失敗メッセージは表示されたままにするため、resetMessages()は呼ばない
+                            // ただし、ボタンは有効化し、NFCリーダーは中止する
+                            scanButton.classList.remove('bg-blue-800');
+                            scanButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                            scanButton.disabled = false;
+                            if (ndefReaderInstance) {
+                                ndefReaderInstance.abort().catch(e => console.error("Failed to abort NDEFReader:", e));
+                                ndefReaderInstance = null;
+                            }
                         }
                     };
 
@@ -283,14 +293,28 @@
                         }
                         showErrorMessage(errorMessageText);
                         nfcStatus.textContent = 'NFC読み取り中にエラーが発生しました。';
-                        resetMessages(); // エラー発生時もボタンの状態をリセット
+                        // エラー発生時もボタンの状態をリセット
+                        // エラーメッセージは表示されたままにするため、resetMessages()は呼ばない
+                        // ただし、ボタンは有効化し、NFCリーダーは中止する
+                        scanButton.classList.remove('bg-blue-800');
+                        scanButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                        scanButton.disabled = false;
+                        if (ndefReaderInstance) {
+                            ndefReaderInstance.abort().catch(e => console.error("Failed to abort NDEFReader:", e));
+                            ndefReaderInstance = null;
+                        }
                     };
 
                 } catch (error) {
                     // scan() または timeoutPromise が reject された場合
                     showErrorMessage(`${error.message}`); // タイムアウトメッセージまたはスキャン開始エラー
                     nfcStatus.textContent = 'NFCスキャンを停止しました。';
-                    resetMessages(); // エラー発生時もボタンの状態をリセット
+                    
+                    // タイムアウトまたはスキャン開始エラーの場合、
+                    // エラーメッセージを数秒表示してから初期状態に戻す
+                    setTimeout(() => {
+                        resetMessages(); // 数秒後に完全に初期状態に戻す
+                    }, 3000); // 3秒後にリセット
                 }
             } else {
                 showErrorMessage('お使いのブラウザはWeb NFC APIをサポートしていません。(Android版Chrome推奨)');
