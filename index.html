@@ -24,7 +24,12 @@
                 <span class="text-red-500 font-bold">重要:</span> Webアプリはスマートフォンの特定のファイルパスから直接ファイルを読み取れません。
                 以下のボタンからファイルを<strong class="text-blue-600">手動で選択</strong>してください。
             </p>
-            <input type="file" id="localFileInput" class="hidden" accept="text/*">
+            <!-- 
+                ファイル形式をUTF-8のテキストファイル（.txt）に制限します。
+                'text/plain' MIMEタイプと '.txt' 拡張子を指定することで、
+                ブラウザのファイル選択ダイアログでテキストファイルが優先的に表示されます。
+            -->
+            <input type="file" id="localFileInput" class="hidden" accept="text/plain, .txt">
             <label for="localFileInput" class="w-full inline-flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M.5 8a.5.5 0 0 1 .5.5V12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5a.5.5 0 0 1 1 0V12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V8.5A.5.5 0 0 1 .5 8z"/>
