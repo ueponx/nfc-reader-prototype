@@ -109,7 +109,8 @@
         }
 
         /**
-         * メッセージをリセットする関数
+         * メッセージとボタンの状態をリセットする関数
+         * ボタンの色を初期状態に戻し、有効化します。
          */
         function resetMessages() {
             nfcStatus.textContent = 'NFC読み取り準備中...';
@@ -117,6 +118,11 @@
             readContentContainer.classList.add('hidden');
             errorMessageContainer.classList.add('hidden');
             successMessageContainer.classList.add('hidden');
+
+            // ボタンの状態を初期に戻す
+            scanButton.classList.remove('bg-blue-800'); // スキャン中の色を削除
+            scanButton.classList.add('bg-blue-600', 'hover:bg-blue-700'); // 初期色とホバー効果を再適用
+            scanButton.disabled = false; // ボタンを有効化
         }
 
         // --- ファイル入力イベントリスナー ---
@@ -147,7 +153,12 @@
         // --- NFCスキャンボタンイベントリスナー ---
 
         scanButton.addEventListener('click', async () => {
-            resetMessages(); // メッセージをリセット
+            resetMessages(); // まず状態をリセット
+
+            // スキャン開始時のボタンの状態変更
+            scanButton.classList.remove('bg-blue-600', 'hover:bg-blue-700'); // 初期色とホバー効果を削除
+            scanButton.classList.add('bg-blue-800'); // スキャン中の色を適用
+            scanButton.disabled = true; // ボタンを無効化
 
             // Web NFC APIがサポートされているかチェック
             if ('NDEFReader' in window) {
@@ -205,6 +216,7 @@
 
                         if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') {
                             showErrorMessage('GASのWebアプリURLが設定されていません。');
+                            resetMessages(); // エラー時はボタンもリセット
                             return;
                         }
 
@@ -233,6 +245,8 @@
                         } catch (error) {
                             console.error('GASへのアクセスエラー:', error);
                             showErrorMessage(`データ送信エラー: ${error.message}`);
+                        } finally {
+                            resetMessages(); // 処理完了後にボタンの状態をリセット
                         }
                     };
 
@@ -247,18 +261,21 @@
                         }
                         showErrorMessage(errorMessageText);
                         nfcStatus.textContent = 'NFC読み取り中にエラーが発生しました。';
+                        resetMessages(); // エラー発生時もボタンの状態をリセット
                     };
 
                 } catch (error) {
                     // NFCスキャンを開始できなかった場合（ユーザーが許可しなかった、NFCが無効など）
                     showErrorMessage(`NFCスキャンを開始できませんでした: ${error.message}`);
                     nfcStatus.textContent = 'NFCスキャンを開始できませんでした。';
+                    resetMessages(); // エラー発生時もボタンの状態をリセット
                 }
             } else {
                 // ブラウザがWeb NFC APIをサポートしていない場合
                 showErrorMessage('お使いのブラウザはWeb NFC APIをサポートしていません。(Android版Chrome推奨)');
                 scanButton.disabled = true;
                 nfcStatus.textContent = 'Web NFC APIが利用できません。';
+                resetMessages(); // エラー発生時もボタンの状態をリセット
             }
         });
     </script>
