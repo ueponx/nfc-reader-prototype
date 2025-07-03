@@ -171,13 +171,18 @@
 
             // Web NFC APIがサポートされているかチェック
             if ('NDEFReader' in window) {
-                nfcStatus.textContent = 'NFCタグをスマートフォンの背面にかざしてください...'; 
+                nfcStatus.textContent = 'NFCタグをスマートフォンの背面にかざしてください... (10秒でタイムアウト)'; // タイムアウトの文言を再追加
                 try {
                     ndefReaderInstance = new NDEFReader(); // インスタンスを保存
 
-                    await ndefReaderInstance.scan(); 
+                    // タイムアウト用のPromiseを作成 (10秒)
+                    const timeoutPromise = new Promise((resolve, reject) => {
+                        setTimeout(() => {
+                            reject(new Error('NFCスキャンがタイムアウトしました。タグが検出されませんでした。'));
+                        }, 10000); // 10秒 = 10000ミリ秒
+                    });
 
-                    // scan() が成功した場合のイベントリスナー設定
+                    // onreadingとonreadingerrorのイベントリスナーをscan()の前に設定
                     ndefReaderInstance.onreading = async event => {
                         nfcStatus.textContent = 'NFCタグを読み取りました！';
                         readContentContainer.classList.remove('hidden');
@@ -227,7 +232,7 @@
 
                         if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') { 
                             showErrorMessage('GASのWebアプリURLが設定されていません。');
-                            resetMessages(); 
+                            setTimeout(() => resetMessages(), 3000); // エラー時は3秒後にリセット
                             return;
                         }
 
@@ -284,9 +289,16 @@
                         }, 3000); // 3秒後にリセット
                     };
 
+                    // scan() と timeoutPromise を競合させる
+                    await Promise.race([
+                        ndefReaderInstance.scan(), 
+                        timeoutPromise
+                    ]);
+
                 } catch (error) {
                     // scan()の呼び出し自体が失敗した場合 (NFC無効、権限拒否など)
-                    showErrorMessage(`NFCスキャンを開始できませんでした: ${error.message}`); 
+                    // または timeoutPromise が reject された場合
+                    showErrorMessage(`${error.message}`); 
                     nfcStatus.textContent = 'NFCスキャンを停止しました。';
                     
                     // エラーメッセージを数秒表示してから初期状態に戻す
