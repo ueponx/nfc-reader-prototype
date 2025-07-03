@@ -110,24 +110,20 @@
         }
 
         /**
-         * メッセージとボタンの状態をリセットする関数
-         * ボタンの色を初期状態に戻し、有効化します。
+         * メッセージとボタンの状態を初期状態に完全にリセットする関数
+         * これは、NFCスキャンが開始できないような致命的なエラーの場合のみ使用します。
          */
-        function resetMessages() {
-            // 初期状態のテキストに変更
+        function resetToInitialState() {
             nfcStatus.textContent = 'ファイルを選択しスキャンボタンを押してください';
             readContentDisplay.innerHTML = '';
             readContentContainer.classList.add('hidden');
             errorMessageContainer.classList.add('hidden');
             successMessageContainer.classList.add('hidden');
 
-            // ボタンの状態を初期に戻す
-            // スキャン中の色（bg-purple-600）を削除し、初期色（bg-blue-600）とホバー効果を再適用
             scanButton.classList.remove('bg-purple-600'); 
             scanButton.classList.add('bg-blue-600', 'hover:bg-blue-700'); 
-            scanButton.disabled = false; // ボタンを有効化
+            scanButton.disabled = false; 
 
-            // NDEFReaderインスタンスが存在すれば中止する (クリーンアップ)
             if (ndefReaderInstance) {
                 ndefReaderInstance.abort().catch(e => console.error("Failed to abort NDEFReader:", e));
                 ndefReaderInstance = null;
@@ -162,160 +158,175 @@
         // --- NFCスキャンボタンイベントリスナー ---
 
         scanButton.addEventListener('click', async () => {
-            resetMessages(); // まず状態をリセット
+            // 既存のメッセージを非表示にする
+            errorMessageContainer.classList.add('hidden');
+            successMessageContainer.classList.add('hidden');
+            readContentContainer.classList.add('hidden');
+            readContentDisplay.innerHTML = '';
 
-            // スキャン開始時のボタンの状態変更
-            scanButton.classList.remove('bg-blue-600', 'hover:bg-blue-700'); // 初期色とホバー効果を削除
-            scanButton.classList.add('bg-purple-600'); // スキャン中の色を適用
-            scanButton.disabled = true; // ボタンを無効化
+            // 既にスキャンセッションがアクティブでない場合のみ、初期設定を行う
+            if (!ndefReaderInstance || ndefReaderInstance.state === 'terminated') {
+                // スキャン開始時のボタンの状態変更
+                scanButton.classList.remove('bg-blue-600', 'hover:bg-blue-700'); // 初期色とホバー効果を削除
+                scanButton.classList.add('bg-purple-600'); // スキャン中の色を適用
+                scanButton.disabled = true; // ボタンを無効化
 
-            // Web NFC APIがサポートされているかチェック
-            if ('NDEFReader' in window) {
-                // ここを修正: 「NFCタグをスマートフォンにかざしてください…」に変更
+                // ボタンのテキストを「NFC読み取り中」に変更
+                scanButton.textContent = 'NFC読み取り中';
+
+                // ステータス表示を「NFCタグをスマートフォンにかざしてください…」に変更
                 nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…'; 
-                try {
-                    ndefReaderInstance = new NDEFReader(); // インスタンスを保存
 
-                    // タイムアウト用のPromiseを作成 (10秒)
-                    const timeoutPromise = new Promise((resolve, reject) => {
-                        setTimeout(() => {
-                            reject(new Error('NFCスキャンがタイムアウトしました。タグが検出されませんでした。'));
-                        }, 10000); // 10秒 = 10000ミリ秒
-                    });
+                if ('NDEFReader' in window) {
+                    try {
+                        ndefReaderInstance = new NDEFReader(); // インスタンスを生成
 
-                    // onreadingとonreadingerrorのイベントリスナーをscan()の前に設定
-                    ndefReaderInstance.onreading = async event => {
-                        nfcStatus.textContent = 'NFCタグを読み取りました！';
-                        readContentContainer.classList.remove('hidden');
+                        // onreadingとonreadingerrorのイベントリスナーを設定
+                        ndefReaderInstance.onreading = async event => {
+                            nfcStatus.textContent = 'NFCタグを読み取りました！';
+                            readContentContainer.classList.remove('hidden');
 
-                        let contentHtml = '';
-                        const decoder = new TextDecoder();
-                        let nfcUrl = null; // NFCから読み取ったURLを保持する変数
+                            let contentHtml = '';
+                            const decoder = new TextDecoder();
+                            let nfcUrl = null; 
 
-                        if (event.message.records.length === 0) {
-                            contentHtml = '<p>このNFCタグにはレコードが含まれていません。</p>';
-                        } else {
-                            event.message.records.forEach((record, index) => {
-                                contentHtml += `<div class="mb-2 p-2 border border-gray-300 rounded-md bg-white">`;
-                                contentHtml += `<p class="font-semibold">レコード ${index + 1}:</p>`;
-                                contentHtml += `<p><strong>タイプ:</strong> ${record.recordType}</p>`;
+                            if (event.message.records.length === 0) {
+                                contentHtml = '<p>このNFCタグにはレコードが含まれていません。</p>';
+                            } else {
+                                event.message.records.forEach((record, index) => {
+                                    contentHtml += `<div class="mb-2 p-2 border border-gray-300 rounded-md bg-white">`;
+                                    contentHtml += `<p class="font-semibold">レコード ${index + 1}:</p>`;
+                                    contentHtml += `<p><strong>タイプ:</strong> ${record.recordType}</p>`;
 
-                                let recordData = '';
-                                try {
-                                    if (record.recordType === 'text') {
-                                        const textDecoder = new TextDecoder(record.encoding || 'utf-8');
-                                        recordData = textDecoder.decode(record.data);
-                                        contentHtml += `<p><strong>内容 (テキスト):</strong> <span class="text-green-700">${recordData}</span></p>`;
-                                    } else if (record.recordType === 'url') {
-                                        recordData = decoder.decode(record.data);
-                                        contentHtml += `<p><strong>内容 (URL):</strong> <a href="${recordData}" target="_blank" class="text-blue-600 hover:underline">${recordData}</a></p>`;
-                                        nfcUrl = recordData; // URLを保存
-                                    } else if (record.recordType === 'mime') {
-                                        contentHtml += `<p><strong>MIMEタイプ:</strong> ${record.mediaType}</p>`;
-                                        contentHtml += `<p><strong>データ長:</strong> ${record.data.byteLength} バイト</p>`;
-                                    } else {
-                                        contentHtml += `<p><strong>データ長:</strong> ${record.data.byteLength} バイト</p>`;
-                                        const hexData = Array.from(new Uint8Array(record.data))
-                                                            .map(b => b.toString(16).padStart(2, '0'))
-                                                            .join(' ');
-                                        contentHtml += `<p><strong>生データ (一部):</b> <span class="font-mono text-xs">${hexData.substring(0, 100)}${hexData.length > 100 ? '...' : ''}</span></p>`;
+                                    let recordData = '';
+                                    try {
+                                        if (record.recordType === 'text') {
+                                            const textDecoder = new TextDecoder(record.encoding || 'utf-8');
+                                            recordData = textDecoder.decode(record.data);
+                                            contentHtml += `<p><strong>内容 (テキスト):</strong> <span class="text-green-700">${recordData}</span></p>`;
+                                        } else if (record.recordType === 'url') {
+                                            recordData = decoder.decode(record.data);
+                                            contentHtml += `<p><strong>内容 (URL):</strong> <a href="${recordData}" target="_blank" class="text-blue-600 hover:underline">${recordData}</a></p>`;
+                                            nfcUrl = recordData; 
+                                        } else if (record.recordType === 'mime') {
+                                            contentHtml += `<p><strong>MIMEタイプ:</strong> ${record.mediaType}</p>`;
+                                            contentHtml += `<p><strong>データ長:</strong> ${record.data.byteLength} バイト</p>`;
+                                        } else {
+                                            contentHtml += `<p><strong>データ長:</strong> ${record.data.byteLength} バイト</p>`;
+                                            const hexData = Array.from(new Uint8Array(record.data))
+                                                                .map(b => b.toString(16).padStart(2, '0'))
+                                                                .join(' ');
+                                            contentHtml += `<p><strong>生データ (一部):</b> <span class="font-mono text-xs">${hexData.substring(0, 100)}${hexData.length > 100 ? '...' : ''}</span></p>`;
+                                        }
+                                    } catch (e) {
+                                        contentHtml += `<p class="text-red-500">データデコードエラー: ${e.message}</p>`;
                                     }
-                                } catch (e) {
-                                    contentHtml += `<p class="text-red-500">データデコードエラー: ${e.message}</p>`;
-                                }
-                                contentHtml += `</div>`;
-                            });
-                        }
-                        readContentDisplay.innerHTML = contentHtml;
+                                    contentHtml += `</div>`;
+                                });
+                            }
+                            readContentDisplay.innerHTML = contentHtml;
 
-                        // --- Google Apps Script (GAS) へのデータ送信 ---
-                        const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbxc34pxlopp11fGMV7EUgNulDLyXc_j8fJ7uacqrhHppx2iOHu28a38-EWmbI-aLqX4/exec'; 
+                            // --- Google Apps Script (GAS) へのデータ送信 ---
+                            const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbxc34pxlopp11fGMV7EUgNulDLyXc_j8fJ7uacqrhHppx2iOHu28a38-EWmbI-aLqX4/exec'; 
 
-                        if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') { 
-                            showErrorMessage('GASのWebアプリURLが設定されていません。');
-                            setTimeout(() => resetMessages(), 3000); // エラー時は3秒後にリセット
-                            return;
-                        }
-
-                        let uidToSend = nfcUrl;
-                        if (!uidToSend) {
-                            uidToSend = selectedFileContent ? `ファイル内容: ${selectedFileContent.substring(0, 50)}${selectedFileContent.length > 50 ? '...' : ''}` : 'URLなし / ファイルなし';
-                        }
-
-                        const payload = {
-                            uid: uidToSend, 
-                        };
-
-                        try {
-                            const response = await fetch(gasWebAppUrl, {
-                                method: 'POST', 
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify(payload)
-                            });
-
-                            if (!response.ok) {
-                                throw new Error(`HTTPエラー! ステータス: ${response.status}`);
+                            if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') { 
+                                showErrorMessage('GASのWebアプリURLが設定されていません。');
+                                // 致命的なエラーなので、ボタンを有効化して初期状態に戻す
+                                setTimeout(() => resetToInitialState(), 3000); 
+                                return;
                             }
 
-                            const result = await response.text();
-                            console.log('GASからの応答:', result);
-                            showSuccessMessage('データをGoogleスプレッドシートに送信しました！');
+                            let uidToSend = nfcUrl;
+                            if (!uidToSend) {
+                                uidToSend = selectedFileContent ? `ファイル内容: ${selectedFileContent.substring(0, 50)}${selectedFileContent.length > 50 ? '...' : ''}` : 'URLなし / ファイルなし';
+                            }
 
-                        } catch (error) {
-                            console.error('GASへのアクセスエラー:', error);
-                            showErrorMessage(`データ送信エラー: ${error.message}`);
-                        } finally {
-                            // 処理完了後にメッセージを数秒表示してから初期状態に戻す
+                            const payload = {
+                                uid: uidToSend, 
+                            };
+
+                            try {
+                                const response = await fetch(gasWebAppUrl, {
+                                    method: 'POST', 
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify(payload)
+                                });
+
+                                if (!response.ok) {
+                                    throw new Error(`HTTPエラー! ステータス: ${response.status}`);
+                                }
+
+                                const result = await response.text();
+                                console.log('GASからの応答:', result);
+                                showSuccessMessage('データをGoogleスプレッドシートに送信しました！');
+
+                            } catch (error) {
+                                console.error('GASへのアクセスエラー:', error);
+                                showErrorMessage(`データ送信エラー: ${error.message}`);
+                            } finally {
+                                // GAS送信結果メッセージを数秒表示後、ステータス表示を元に戻す
+                                setTimeout(() => {
+                                    nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…';
+                                    readContentContainer.classList.add('hidden');
+                                    successMessageContainer.classList.add('hidden');
+                                    errorMessageContainer.classList.add('hidden');
+                                }, 3000); 
+                            }
+                        };
+
+                        ndefReaderInstance.onreadingerror = error => {
+                            let errorMessageText = '';
+                            if (error.message) {
+                                errorMessageText = `NFC読み取りエラー: ${error.message}`;
+                            } else {
+                                errorMessageText = 'NFCタグを検知しましたが、内容の読み取りに失敗しました。';
+                            }
+                            showErrorMessage(errorMessageText);
+                            nfcStatus.textContent = 'NFC読み取り中にエラーが発生しました。'; // 読み取り中ステータスを維持
+                            
+                            // エラーメッセージを数秒表示後、ステータス表示を元に戻す
                             setTimeout(() => {
-                                resetMessages();
-                            }, 3000); // 3秒後にリセット
-                        }
-                    };
+                                nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…';
+                                errorMessageContainer.classList.add('hidden');
+                            }, 3000); 
+                        };
 
-                    ndefReaderInstance.onreadingerror = error => {
-                        let errorMessageText = '';
-                        if (error.message) {
-                            errorMessageText = `NFC読み取りエラー: ${error.message}`;
-                        } else {
-                            errorMessageText = 'NFCタグを検知しましたが、内容の読み取りに失敗しました。';
-                        }
-                        showErrorMessage(errorMessageText);
-                        nfcStatus.textContent = 'NFC読み取り中にエラーが発生しました。';
+                        // スキャンセッションを開始
+                        // このPromiseはセッションが終了（abortされるか、ページが閉じられる）まで解決しない
+                        ndefReaderInstance.scan().catch(error => {
+                            // scan()の呼び出し自体が失敗した場合 (NFC無効、権限拒否など)
+                            showErrorMessage(`NFCスキャンを開始できませんでした: ${error.message}`); 
+                            nfcStatus.textContent = 'NFCスキャンを停止しました。';
+                            
+                            // 致命的なエラーなので、ボタンを有効化して初期状態に戻す
+                            setTimeout(() => resetToInitialState(), 3000); 
+                        });
+
+                    } catch (error) {
+                        // NDEFReaderのインスタンス化自体が失敗した場合など
+                        showErrorMessage(`NFCリーダーの初期化に失敗しました: ${error.message}`);
+                        nfcStatus.textContent = 'NFCスキャンを停止しました。';
                         
-                        // エラーメッセージを数秒表示してから初期状態に戻す
-                        setTimeout(() => {
-                            resetMessages();
-                        }, 3000); // 3秒後にリセット
-                    };
-
-                    // scan() と timeoutPromise を競合させる
-                    await Promise.race([
-                        ndefReaderInstance.scan(), 
-                        timeoutPromise
-                    ]);
-
-                } catch (error) {
-                    // scan()の呼び出し自体が失敗した場合 (NFC無効、権限拒否など)
-                    // または timeoutPromise が reject された場合
-                    showErrorMessage(`${error.message}`); 
-                    nfcStatus.textContent = 'NFCスキャンを停止しました。';
+                        // 致命的なエラーなので、ボタンを有効化して初期状態に戻す
+                        setTimeout(() => resetToInitialState(), 3000); 
+                    }
+                } else {
+                    // ブラウザがWeb NFC APIをサポートしていない場合
+                    showErrorMessage('お使いのブラウザはWeb NFC APIをサポートしていません。(Android版Chrome推奨)');
+                    nfcStatus.textContent = 'Web NFC APIが利用できません。';
                     
-                    // エラーメッセージを数秒表示してから初期状態に戻す
-                    setTimeout(() => {
-                        resetMessages(); 
-                    }, 3000); // 3秒後にリセット
+                    // 致命的なエラーなので、ボタンを有効化して初期状態に戻す
+                    setTimeout(() => resetToInitialState(), 3000); 
                 }
             } else {
-                // ブラウザがWeb NFC APIをサポートしていない場合
-                showErrorMessage('お使いのブラウザはWeb NFC APIをサポートしていません。(Android版Chrome推奨)');
-                scanButton.disabled = true;
-                nfcStatus.textContent = 'Web NFC APIが利用できません。';
-                // このケースも数秒後にリセット
-                setTimeout(() => {
-                    resetMessages();
-                }, 3000); // 3秒後にリセット
+                // 既にスキャンセッションがアクティブな場合、ステータス表示を再確認
+                nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…';
+                // 既存のメッセージを非表示にする
+                errorMessageContainer.classList.add('hidden');
+                successMessageContainer.classList.add('hidden');
+                readContentContainer.classList.add('hidden');
             }
         });
     </script>
