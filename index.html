@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFCリーダープロトタイプ</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background */
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">NFCリーダー</h1>
+
+        <!-- Scan Button -->
+        <button id="scanButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75">
+            NFCをスキャン
+        </button>
+
+        <!-- Status Message -->
+        <p id="nfcStatus" class="mt-6 text-center text-gray-600 text-lg">
+            NFC読み取り準備中...
+        </p>
+
+        <!-- Read Content Display -->
+        <div id="readContentContainer" class="mt-4 p-4 bg-gray-100 rounded-lg border border-gray-200 hidden">
+            <p class="text-gray-700 font-medium mb-2">読み取った内容:</p>
+            <div id="readContent" class="text-gray-800 text-sm break-all">
+                <!-- 読み取ったレコード内容がここに表示されます -->
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessageContainer" class="mt-4 p-4 bg-red-100 border border-red-200 text-red-700 rounded-lg hidden">
+            <p id="errorMessage" class="font-medium"></p>
+        </div>
+    </div>
+
+    <script>
+        // DOM要素の取得
+        const scanButton = document.getElementById('scanButton');
+        const nfcStatus = document.getElementById('nfcStatus');
+        const readContentContainer = document.getElementById('readContentContainer');
+        const readContentDisplay = document.getElementById('readContent'); // 読み取った内容を表示する要素
+        const errorMessageContainer = document.getElementById('errorMessageContainer');
+        const errorMessage = document.getElementById('errorMessage');
+
+        /**
+         * エラーメッセージを表示する関数
+         * @param {string} message - 表示するエラーメッセージ
+         */
+        function showErrorMessage(message) {
+            errorMessage.textContent = message;
+            errorMessageContainer.classList.remove('hidden');
+            readContentContainer.classList.add('hidden'); // 内容表示を隠す
+        }
+
+        /**
+         * メッセージをリセットする関数
+         */
+        function resetMessages() {
+            nfcStatus.textContent = 'NFC読み取り準備中...';
+            readContentDisplay.innerHTML = ''; // 内容表示をクリア
+            readContentContainer.classList.add('hidden');
+            errorMessageContainer.classList.add('hidden');
+        }
+
+        // スキャンボタンのクリックイベントリスナー
+        scanButton.addEventListener('click', async () => {
+            resetMessages(); // メッセージをリセット
+
+            // Web NFC APIがサポートされているかチェック
+            if ('NDEFReader' in window) {
+                nfcStatus.textContent = 'NFCタグをかざしてください...';
+                try {
+                    // NDEFReaderインスタンスを作成
+                    const ndef = new NDEFReader();
+                    // スキャンを開始
+                    await ndef.scan();
+
+                    // NFCタグが読み取られたときのイベントハンドラ
+                    ndef.onreading = event => {
+                        nfcStatus.textContent = 'NFCタグを読み取りました！';
+                        readContentContainer.classList.remove('hidden'); // 内容表示コンテナを表示
+
+                        let contentHtml = '';
+                        const decoder = new TextDecoder(); // テキストデコーダーを一度作成
+
+                        // メッセージ内のすべてのレコードをループ処理
+                        if (event.message.records.length === 0) {
+                            contentHtml = '<p>このNFCタグにはレコードが含まれていません。</p>';
+                        } else {
+                            event.message.records.forEach((record, index) => {
+                                contentHtml += `<div class="mb-2 p-2 border border-gray-300 rounded-md bg-white">`;
+                                contentHtml += `<p class="font-semibold">レコード ${index + 1}:</p>`;
+                                contentHtml += `<p><strong>タイプ:</strong> ${record.recordType}</p>`;
+
+                                let recordData = '';
+                                try {
+                                    // よく使われるレコードタイプをデコードして表示
+                                    if (record.recordType === 'text') {
+                                        // テキストレコードの場合、エンコーディングも考慮
+                                        const textDecoder = new TextDecoder(record.encoding || 'utf-8');
+                                        recordData = textDecoder.decode(record.data);
+                                        contentHtml += `<p><strong>内容 (テキスト):</strong> <span class="text-green-700">${recordData}</span></p>`;
+                                    } else if (record.recordType === 'url') {
+                                        recordData = decoder.decode(record.data);
+                                        contentHtml += `<p><strong>内容 (URL):</strong> <a href="${recordData}" target="_blank" class="text-blue-600 hover:underline">${recordData}</a></p>`;
+
+                                        // ここでGoogle Apps Script (GAS) のWebアプリURLにアクセスする処理を追加
+                                        // 例: const gasWebAppUrl = '【ここにデプロイしたGASのWebアプリURLを貼り付ける】';
+                                        // 例: fetch(`${gasWebAppUrl}?url=${encodeURIComponent(recordData)}`);
+                                        // URLへの自動遷移は行わないが、もし必要なら以下のコメントを解除
+                                        // window.location.href = recordData;
+
+                                    } else if (record.recordType === 'mime') {
+                                        contentHtml += `<p><strong>MIMEタイプ:</strong> ${record.mediaType}</p>`;
+                                        // MIMEタイプの内容は複雑な場合があるので、ここではデータ長のみ表示
+                                        contentHtml += `<p><strong>データ長:</strong> ${record.data.byteLength} バイト</p>`;
+                                    } else {
+                                        // その他のレコードタイプ
+                                        contentHtml += `<p><strong>データ長:</strong> ${record.data.byteLength} バイト</p>`;
+                                        // データの内容を16進数で表示する例（長い場合は省略）
+                                        const hexData = Array.from(new Uint8Array(record.data))
+                                                            .map(b => b.toString(16).padStart(2, '0'))
+                                                            .join(' ');
+                                        contentHtml += `<p><strong>生データ (一部):</strong> <span class="font-mono text-xs">${hexData.substring(0, 100)}${hexData.length > 100 ? '...' : ''}</span></p>`;
+                                    }
+                                } catch (e) {
+                                    contentHtml += `<p class="text-red-500">データデコードエラー: ${e.message}</p>`;
+                                }
+                                contentHtml += `</div>`;
+                            });
+                        }
+                        readContentDisplay.innerHTML = contentHtml;
+                    };
+
+                    // NFC読み取りエラーが発生したときのイベントハンドラ
+                    ndef.onreadingerror = error => {
+                        showErrorMessage(`NFC読み取りエラー: ${error.message}`);
+                        nfcStatus.textContent = 'NFC読み取り中にエラーが発生しました。';
+                    };
+
+                } catch (error) {
+                    // スキャン開始に失敗した場合のエラーハンドリング
+                    showErrorMessage(`NFCスキャンを開始できませんでした: ${error.message}`);
+                    nfcStatus.textContent = 'NFCスキャンを開始できませんでした。';
+                }
+            } else {
+                // ブラウザがWeb NFC APIをサポートしていない場合
+                showErrorMessage('お使いのブラウザはWeb NFC APIをサポートしていません。(Android版Chrome推奨)');
+                scanButton.disabled = true; // ボタンを無効化
+                nfcStatus.textContent = 'Web NFC APIが利用できません。';
+            }
+        });
+    </script>
+</body>
+</html>
