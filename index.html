@@ -212,17 +212,28 @@
                         readContentDisplay.innerHTML = contentHtml;
 
                         // --- Google Apps Script (GAS) へのデータ送信 ---
-                        const gasWebAppUrl = '【ここにデプロイしたGASのWebアプリURLを貼り付ける】'; // 例: 'https://script.google.com/macros/s/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/exec'
+                        // ここにデプロイしたGASのWebアプリURLを貼り付ける
+                        const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbxc34pxlopp11fGMV7EUgNulDLyXc_j8fJ7uacqrhHppx2iOHu28a38-EWmbI-aLqX4/exec'; 
 
-                        if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') {
+                        if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') { // このチェックはもはや不要ですが、念のため残します
                             showErrorMessage('GASのWebアプリURLが設定されていません。');
                             resetMessages(); // エラー時はボタンもリセット
                             return;
                         }
 
+                        // GASが期待する `uid` パラメータを生成
+                        // NFC URLが存在すればそれを、なければファイル内容または「URLなし」をuidとする
+                        let uidToSend = nfcUrl;
+                        if (!uidToSend) {
+                            uidToSend = selectedFileContent ? `ファイル内容: ${selectedFileContent.substring(0, 50)}${selectedFileContent.length > 50 ? '...' : ''}` : 'URLなし / ファイルなし';
+                        }
+                        // ファイル内容も別途送信したい場合は、GAS側も修正する必要がある
+                        // 現在のGASはuidのみを処理するため、uidToSendに主要な情報を集約
+
                         const payload = {
-                            nfcUrl: nfcUrl, // NFCから読み取ったURL (URLがない場合はnull)
-                            fileContent: selectedFileContent // 選択されたファイルのコンテンツ (ファイルがない場合はnull)
+                            uid: uidToSend, // GASのdoPostが期待する 'uid'
+                            // fileContent: selectedFileContent, // GAS側で受け取る場合はコメント解除し、GASも修正
+                            // nfcUrl: nfcUrl // GAS側で受け取る場合はコメント解除し、GASも修正
                         };
 
                         try {
