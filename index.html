@@ -170,24 +170,14 @@
 
             // Web NFC APIがサポートされているかチェック
             if ('NDEFReader' in window) {
-                nfcStatus.textContent = 'NFCタグをスマートフォンの背面にかざしてください... (10秒でタイムアウト)';
+                nfcStatus.textContent = 'NFCタグをスマートフォンの背面にかざしてください...'; // タイムアウトの文言を削除
                 try {
                     ndefReaderInstance = new NDEFReader(); // インスタンスを保存
 
-                    // タイムアウト用のPromiseを作成 (10秒)
-                    const timeoutPromise = new Promise((resolve, reject) => {
-                        setTimeout(() => {
-                            reject(new Error('NFCスキャンがタイムアウトしました。タグが検出されませんでした。'));
-                        }, 10000); // 10秒 = 10000ミリ秒
-                    });
+                    // タイムアウト処理を削除し、scan()を直接await
+                    await ndefReaderInstance.scan(); 
 
-                    // scan() と timeoutPromise を競合させる
-                    await Promise.race([
-                        ndefReaderInstance.scan(), // NDEFReaderのscan()はPromiseを返す
-                        timeoutPromise
-                    ]);
-
-                    // scan() が成功した場合のイベントリスナー設定 (scan()が解決した後に設定)
+                    // scan() が成功した場合のイベントリスナー設定
                     ndefReaderInstance.onreading = async event => {
                         nfcStatus.textContent = 'NFCタグを読み取りました！';
                         readContentContainer.classList.remove('hidden');
@@ -222,7 +212,7 @@
                                         const hexData = Array.from(new Uint8Array(record.data))
                                                             .map(b => b.toString(16).padStart(2, '0'))
                                                             .join(' ');
-                                        contentHtml += `<p><strong>生データ (一部):</strong> <span class="font-mono text-xs">${hexData.substring(0, 100)}${hexData.length > 100 ? '...' : ''}</span></p>`;
+                                        contentHtml += `<p><strong>生データ (一部):</b> <span class="font-mono text-xs">${hexData.substring(0, 100)}${hexData.length > 100 ? '...' : ''}</span></p>`;
                                     }
                                 } catch (e) {
                                     contentHtml += `<p class="text-red-500">データデコードエラー: ${e.message}</p>`;
@@ -237,7 +227,7 @@
 
                         if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') { 
                             showErrorMessage('GASのWebアプリURLが設定されていません。');
-                            // resetMessages(); // ここではメッセージをすぐにリセットせず、setTimeoutで後でリセット
+                            resetMessages(); // エラー時はすぐにリセット
                             return;
                         }
 
@@ -295,23 +285,21 @@
                     };
 
                 } catch (error) {
-                    // scan() または timeoutPromise が reject された場合
-                    showErrorMessage(`${error.message}`); // タイムアウトメッセージまたはスキャン開始エラー
+                    // scan()の呼び出し自体が失敗した場合 (NFC無効、権限拒否など)
+                    showErrorMessage(`NFCスキャンを開始できませんでした: ${error.message}`); 
                     nfcStatus.textContent = 'NFCスキャンを停止しました。';
                     
-                    // タイムアウトまたはスキャン開始エラーの場合、
                     // エラーメッセージを数秒表示してから初期状態に戻す
                     setTimeout(() => {
-                        resetMessages(); // 数秒後に完全に初期状態に戻す
+                        resetMessages(); 
                     }, 3000); // 3秒後にリセット
                 }
             } else {
+                // ブラウザがWeb NFC APIをサポートしていない場合
                 showErrorMessage('お使いのブラウザはWeb NFC APIをサポートしていません。(Android版Chrome推奨)');
                 scanButton.disabled = true;
                 nfcStatus.textContent = 'Web NFC APIが利用できません。';
-                // このケースはユーザーがボタンを押す前に表示されるため、すぐにリセットは不要
-                // ただし、もしユーザーがボタンを押してこの状態になった場合は、
-                // タイムアウトと同様に数秒後にリセットするのが適切
+                // このケースも数秒後にリセット
                 setTimeout(() => {
                     resetMessages();
                 }, 3000); // 3秒後にリセット
