@@ -155,7 +155,13 @@
             document.getElementById('nfcData').textContent = JSON.stringify(nfcData, null, 2);
             document.getElementById('accessUrl').textContent = url;
             document.getElementById('sendData').textContent = JSON.stringify(sendData, null, 2);
-            document.getElementById('responseData').textContent = JSON.stringify(response, null, 2);
+            
+            // レスポンス情報をより詳細に表示
+            const responseInfo = {
+                ...response,
+                timestamp: new Date().toLocaleString('ja-JP')
+            };
+            document.getElementById('responseData').textContent = JSON.stringify(responseInfo, null, 2);
             
             debugInfo.style.display = 'block';
         }
@@ -180,38 +186,78 @@
             try {
                 updateStatus('データを送信中...', 'waiting');
                 
+                // まずGETリクエストで接続確認
+                console.log('接続テスト開始...');
+                const testResponse = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors',
+                });
+                
+                console.log('接続テスト結果:', testResponse.status);
+                
+                // POSTリクエストを送信
                 const response = await fetch(url, {
                     method: 'POST',
+                    mode: 'cors',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify(sendData)
                 });
 
+                console.log('POST応答ステータス:', response.status);
+                
                 const responseText = await response.text();
+                console.log('レスポンステキスト:', responseText);
+                
                 let responseData;
                 
                 try {
                     responseData = JSON.parse(responseText);
-                } catch {
-                    responseData = { raw: responseText };
+                } catch (parseError) {
+                    console.log('JSON解析エラー:', parseError);
+                    responseData = { 
+                        raw: responseText,
+                        parseError: parseError.message 
+                    };
                 }
 
                 if (response.ok) {
                     updateStatus(`✅ 送信成功！時刻: ${timestamp}`, 'success');
                 } else {
-                    updateStatus(`⚠️ 送信エラー (${response.status})`, 'error');
+                    updateStatus(`⚠️ 送信エラー (${response.status}: ${response.statusText})`, 'error');
                 }
 
-                return { sendData, responseData, url };
+                return { 
+                    sendData, 
+                    responseData, 
+                    url,
+                    status: response.status,
+                    statusText: response.statusText
+                };
 
             } catch (error) {
+                console.error('送信エラー詳細:', error);
+                
                 const errorData = {
                     error: error.message,
-                    timestamp: timestamp
+                    name: error.name,
+                    stack: error.stack,
+                    timestamp: timestamp,
+                    url: url
                 };
                 
-                updateStatus(`❌ 通信エラー: ${error.message}`, 'error');
+                // ネットワークエラーの種類を判定
+                let errorMessage = error.message;
+                if (error.message.includes('Failed to fetch')) {
+                    errorMessage = 'ネットワークエラー: サーバーに接続できません';
+                } else if (error.message.includes('CORS')) {
+                    errorMessage = 'CORS エラー: クロスオリジンリクエストが拒否されました';
+                } else if (error.message.includes('NetworkError')) {
+                    errorMessage = 'ネットワークエラー: 接続に失敗しました';
+                }
+                
+                updateStatus(`❌ ${errorMessage}`, 'error');
                 return { sendData, responseData: errorData, url };
             }
         }
