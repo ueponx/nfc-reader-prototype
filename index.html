@@ -246,7 +246,7 @@
 
                         if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') { 
                             showErrorMessage('GASのWebアプリURLが設定されていません。');
-                            setTimeout(() => nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…', 3000); // 3秒後にステータスを戻す
+                            setTimeout(() => nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…', 30000); // 30秒後にステータスを戻す
                             return;
                         }
 
@@ -280,11 +280,11 @@
                             console.error('GASへのアクセスエラー:', error);
                             showErrorMessage(`データ送信エラー: ${error.message}`);
                         } finally {
-                            // 成功/エラーメッセージを3秒表示後、非表示にし、メインステータスに戻す
+                            // 成功/エラーメッセージを30秒表示後、非表示にし、メインステータスに戻す
                             setTimeout(() => {
                                 hideTemporaryMessages();
                                 nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…'; // メインステータスに戻す
-                            }, 3000); 
+                            }, 30000); 
                         }
                     };
 
@@ -298,11 +298,11 @@
                         }
                         showErrorMessage(errorMessageText);
                         
-                        // エラーメッセージを3秒表示後、非表示にし、メインステータスに戻す
+                        // エラーメッセージを30秒表示後、非表示にし、メインステータスに戻す
                         setTimeout(() => {
                             hideTemporaryMessages();
                             nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…'; // メインステータスに戻す
-                        }, 3000); 
+                        }, 30000); 
                     };
 
                     // スキャンセッションを開始
@@ -311,8 +311,8 @@
                         showErrorMessage(`NFCスキャンを開始できませんでした: ${error.message}`); 
                         nfcStatus.textContent = 'NFCスキャンを停止しました。'; // 一時的な停止ステータス
                         
-                        // 致命的なエラーなので、3秒後に完全に初期状態に戻す
-                        setTimeout(() => resetToInitialState(), 3000); 
+                        // 致命的なエラーなので、30秒後に完全に初期状態に戻す
+                        setTimeout(() => resetToInitialState(), 30000); 
                     });
 
                 } catch (error) {
@@ -320,16 +320,16 @@
                     showErrorMessage(`NFCリーダーの初期化に失敗しました: ${error.message}`);
                     nfcStatus.textContent = 'NFCスキャンを停止しました。'; // 一時的な停止ステータス
                     
-                    // 致命的なエラーなので、3秒後に完全に初期状態に戻す
-                    setTimeout(() => resetToInitialState(), 3000); 
+                    // 致命的なエラーなので、30秒後に完全に初期状態に戻す
+                    setTimeout(() => resetToInitialState(), 30000); 
                 }
             } else {
                 // ブラウザがWeb NFC APIをサポートしていない場合
                 showErrorMessage('お使いのブラウザはWeb NFC APIをサポートしていません。(Android版Chrome推奨)');
                 nfcStatus.textContent = 'Web NFC APIが利用できません。'; // 一時的な停止ステータス
                 
-                // 致命的なエラーなので、3秒後に完全に初期状態に戻す
-                setTimeout(() => resetToInitialState(), 3000); 
+                // 致命的なエラーなので、30秒後に完全に初期状態に戻す
+                setTimeout(() => resetToInitialState(), 30000); 
             }
         });
     </script>
