@@ -117,8 +117,7 @@
             readContentContainer.classList.add('hidden');
             successMessageContainer.classList.add('hidden');
             processStatus.classList.add('hidden');
-            tagInfoContainer.classList.add('hidden');
-            fetchInfoContainer.classList.add('hidden');
+            // タグ情報とFetch情報は表示したままにする
         }
 
         function showSuccessMessage(message) {
@@ -126,6 +125,7 @@
             successMessageContainer.classList.remove('hidden');
             errorMessageContainer.classList.add('hidden');
             processStatus.classList.add('hidden');
+            // タグ情報とFetch情報は表示したままにする
         }
 
         function showProcessStatus(message) {
@@ -133,6 +133,7 @@
             processStatus.classList.remove('hidden');
             errorMessageContainer.classList.add('hidden');
             successMessageContainer.classList.add('hidden');
+            // タグ情報とFetch情報は表示したままにする
         }
 
         function hideTemporaryMessages() {
@@ -140,16 +141,22 @@
             errorMessageContainer.classList.add('hidden');
             successMessageContainer.classList.add('hidden');
             processStatus.classList.add('hidden');
+            readContentDisplay.innerHTML = '';
+            // タグ情報とFetch情報は次回スキャンまで表示したまま
+        }
+
+        function clearAllInfo() {
+            // 新しいスキャン開始時にのみ全ての情報をクリア
+            hideTemporaryMessages();
             tagInfoContainer.classList.add('hidden');
             fetchInfoContainer.classList.add('hidden');
-            readContentDisplay.innerHTML = '';
             tagInfo.innerHTML = '';
             fetchInfo.innerHTML = '';
         }
 
         function resetToInitialState() {
-            nfcStatus.textContent = 'スキャンボタンを押してNFCタグをかざしてください';
-            hideTemporaryMessages();
+            nfcStatus.textContent = 'NFCタグをスキャンしてください';
+            hideTemporaryMessages(); // タグ情報とFetch情報は残す
 
             scanButton.classList.remove('bg-purple-600'); 
             scanButton.classList.add('bg-blue-600', 'hover:bg-blue-700'); 
@@ -251,12 +258,12 @@
         // --- NFCスキャンボタンイベントリスナー ---
         scanButton.addEventListener('click', async () => {
             if (isScanningActive) {
-                hideTemporaryMessages();
+                hideTemporaryMessages(); // タグ情報とFetch情報は残す
                 nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…';
                 return;
             }
 
-            hideTemporaryMessages();
+            clearAllInfo(); // 新しいスキャン開始時に全ての情報をクリア
 
             scanButton.classList.remove('bg-blue-600', 'hover:bg-blue-700'); 
             scanButton.classList.add('bg-purple-600'); 
