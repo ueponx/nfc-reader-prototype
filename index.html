@@ -253,7 +253,9 @@
                         };
 
                         if (record.recordType === 'url') {
-                            url = record.data;
+                            // URLレコードの場合、DataViewをデコード
+                            const decoder = new TextDecoder();
+                            url = decoder.decode(record.data);
                             recordData.data = url;
                         } else if (record.recordType === 'text') {
                             const decoder = new TextDecoder();
@@ -264,8 +266,25 @@
                             if (text.startsWith('http')) {
                                 url = text;
                             }
+                        } else if (record.recordType === 'absolute-url') {
+                            // 絶対URLレコードの場合
+                            const decoder = new TextDecoder();
+                            url = decoder.decode(record.data);
+                            recordData.data = url;
                         } else {
-                            recordData.data = new Uint8Array(record.data);
+                            // その他のデータ型
+                            try {
+                                const decoder = new TextDecoder();
+                                const decodedText = decoder.decode(record.data);
+                                recordData.data = decodedText;
+                                
+                                // デコードしたテキストがURLかチェック
+                                if (decodedText.startsWith('http')) {
+                                    url = decodedText;
+                                }
+                            } catch (e) {
+                                recordData.data = new Uint8Array(record.data);
+                            }
                         }
                         
                         nfcData.records.push(recordData);
