@@ -114,10 +114,9 @@
         function showErrorMessage(message) {
             errorMessage.textContent = message;
             errorMessageContainer.classList.remove('hidden');
-            readContentContainer.classList.add('hidden');
+            // エラー時でも全ての情報を表示したままにする
             successMessageContainer.classList.add('hidden');
             processStatus.classList.add('hidden');
-            // タグ情報とFetch情報は表示したままにする
         }
 
         function showSuccessMessage(message) {
@@ -125,7 +124,7 @@
             successMessageContainer.classList.remove('hidden');
             errorMessageContainer.classList.add('hidden');
             processStatus.classList.add('hidden');
-            // タグ情報とFetch情報は表示したままにする
+            // 成功時も全ての情報を表示したままにする
         }
 
         function showProcessStatus(message) {
@@ -133,23 +132,25 @@
             processStatus.classList.remove('hidden');
             errorMessageContainer.classList.add('hidden');
             successMessageContainer.classList.add('hidden');
-            // タグ情報とFetch情報は表示したままにする
+            // 処理中も全ての情報を表示したままにする
         }
 
         function hideTemporaryMessages() {
-            readContentContainer.classList.add('hidden');
             errorMessageContainer.classList.add('hidden');
             successMessageContainer.classList.add('hidden');
             processStatus.classList.add('hidden');
-            readContentDisplay.innerHTML = '';
-            // タグ情報とFetch情報は次回スキャンまで表示したまま
+            // 読み取り内容、タグ情報、Fetch情報は次回スキャンまで表示したまま
         }
 
         function clearAllInfo() {
             // 新しいスキャン開始時にのみ全ての情報をクリア
-            hideTemporaryMessages();
+            readContentContainer.classList.add('hidden');
+            errorMessageContainer.classList.add('hidden');
+            successMessageContainer.classList.add('hidden');
+            processStatus.classList.add('hidden');
             tagInfoContainer.classList.add('hidden');
             fetchInfoContainer.classList.add('hidden');
+            readContentDisplay.innerHTML = '';
             tagInfo.innerHTML = '';
             fetchInfo.innerHTML = '';
         }
