@@ -36,11 +36,11 @@
             </div>
         </div>
 
-        <!-- Fetch Request Info -->
+        <!-- Request Info -->
         <div id="fetchInfoContainer" class="mt-4 p-4 bg-green-50 rounded-lg border border-green-200 hidden">
-            <p class="text-green-800 font-medium mb-2">📡 送信リクエスト情報:</p>
+            <p class="text-green-800 font-medium mb-2">📡 リクエスト情報:</p>
             <div id="fetchInfo" class="text-green-800 text-sm">
-                <!-- fetchリクエストの詳細がここに表示されます -->
+                <!-- リクエストの詳細がここに表示されます -->
             </div>
         </div>
 
@@ -205,11 +205,11 @@
                     user_agent: navigator.userAgent
                 });
                 
-                const requestUrl = `${GAS_WEBAPP_URL}?${params.toString()}`;
+                const logRequestUrl = `${GAS_WEBAPP_URL}?${params.toString()}`;
 
-                // Fetchリクエスト情報を表示
+                // リクエスト情報を表示
                 fetchInfo.innerHTML = `
-                    <p><strong>リクエスト方法:</strong> GET</p>
+                    <p><strong>リクエスト方法:</strong> GET (新しいウィンドウ)</p>
                     <p><strong>送信先URL:</strong><br><span class="font-mono text-xs break-all">${GAS_WEBAPP_URL}</span></p>
                     <p class="mt-2"><strong>送信パラメータ:</strong></p>
                     <div class="bg-white p-2 rounded border mt-1 font-mono text-xs">
@@ -221,35 +221,30 @@
                 `;
                 fetchInfoContainer.classList.remove('hidden');
 
-                console.log('GASにGETリクエスト送信:', requestUrl);
+                console.log('GASにGETリクエスト送信（新しいウィンドウ）:', logRequestUrl);
 
-                const logResponse = await fetch(requestUrl, {
-                    method: 'GET'
-                });
+                // ログ記録用の小さなウィンドウを開く
+                const logWindow = window.open(
+                    logRequestUrl, 
+                    'logWindow', 
+                    'width=400,height=300,scrollbars=yes,resizable=yes'
+                );
 
-                console.log('GASからのレスポンス状態:', logResponse.status);
-                
-                if (!logResponse.ok) {
-                    const errorText = await logResponse.text();
-                    console.error('GASエラー詳細:', errorText);
-                    throw new Error(`ログ記録エラー: ${logResponse.status} - ${errorText}`);
-                }
-
-                const responseText = await logResponse.text();
-                console.log('GAS成功レスポンス:', responseText);
-
-                // 2. スプレッドシートにアクセス
-                showProcessStatus('スプレッドシートを開いています...');
-                
+                // ログウィンドウの処理完了を待つ（簡易的）
                 setTimeout(() => {
-                    window.open(spreadsheetUrl, '_blank');
-                    showSuccessMessage(`ログを記録してスプレッドシートを開きました！\nアクセス時刻: ${accessTime}`);
+                    showProcessStatus('スプレッドシートを開いています...');
                     
-                    // 成功時は長めに表示してからリセット
+                    // 2. スプレッドシートにアクセス
                     setTimeout(() => {
-                        resetToInitialState();
-                    }, 10000);
-                }, 1000);
+                        window.open(spreadsheetUrl, '_blank');
+                        showSuccessMessage(`ログ記録リクエストを送信し、スプレッドシートを開きました！\nアクセス時刻: ${accessTime}\n\n※ログ記録の成功/失敗は別ウィンドウで確認できます`);
+                        
+                        // 成功時は長めに表示してからリセット
+                        setTimeout(() => {
+                            resetToInitialState();
+                        }, 15000);
+                    }, 1000);
+                }, 2000);
 
             } catch (error) {
                 console.error('処理エラー:', error);
