@@ -196,32 +196,35 @@
                 showProcessStatus('アクセスログを記録中...');
                 
                 const accessTime = getCurrentJapanTime();
-                const logPayload = {
+                
+                // GETリクエスト用のURLパラメータを作成
+                const params = new URLSearchParams({
                     action: 'log_access',
                     spreadsheet_url: spreadsheetUrl,
                     access_time: accessTime,
                     user_agent: navigator.userAgent
-                };
+                });
+                
+                const requestUrl = `${GAS_WEBAPP_URL}?${params.toString()}`;
 
                 // Fetchリクエスト情報を表示
                 fetchInfo.innerHTML = `
+                    <p><strong>リクエスト方法:</strong> GET</p>
                     <p><strong>送信先URL:</strong><br><span class="font-mono text-xs break-all">${GAS_WEBAPP_URL}</span></p>
-                    <p class="mt-2"><strong>送信データ:</strong></p>
+                    <p class="mt-2"><strong>送信パラメータ:</strong></p>
                     <div class="bg-white p-2 rounded border mt-1 font-mono text-xs">
-                        ${JSON.stringify(logPayload, null, 2)}
+                        action: log_access<br>
+                        spreadsheet_url: ${spreadsheetUrl}<br>
+                        access_time: ${accessTime}<br>
+                        user_agent: ${navigator.userAgent.substring(0, 50)}...
                     </div>
                 `;
                 fetchInfoContainer.classList.remove('hidden');
 
-                console.log('GASに送信するデータ:', logPayload);
-                console.log('GAS URL:', GAS_WEBAPP_URL);
+                console.log('GASにGETリクエスト送信:', requestUrl);
 
-                const logResponse = await fetch(GAS_WEBAPP_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(logPayload)
+                const logResponse = await fetch(requestUrl, {
+                    method: 'GET'
                 });
 
                 console.log('GASからのレスポンス状態:', logResponse.status);
