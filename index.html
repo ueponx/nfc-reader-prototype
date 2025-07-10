@@ -69,6 +69,9 @@
         </div>
     </div>
 
+    <!-- Generation Timestamp -->
+    <div id="generationTimestamp" class="absolute bottom-4 right-4 text-xs text-gray-500"></div>
+
     <script>
         // DOM要素の取得
         const scanButton = document.getElementById('scanButton');
@@ -79,6 +82,7 @@
         const errorMessage = document.getElementById('errorMessage');
         const successMessageContainer = document.getElementById('successMessageContainer');
         const successMessage = document.getElementById('successMessage');
+        const generationTimestampDisplay = document.getElementById('generationTimestamp'); // 生成時刻表示要素
 
         const localFileInput = document.getElementById('localFileInput');
         const selectedFileNameDisplay = document.getElementById('selectedFileName');
@@ -86,6 +90,18 @@
         let selectedFileContent = null; // 選択されたファイルのコンテンツを保持する変数
         let ndefReaderInstance = null; // NDEFReaderのインスタンスを保持する変数
         let isScanningActive = false; // スキャンセッションがアクティブかどうかを示すフラグ
+
+        // --- ページロード時に生成時刻を表示 ---
+        window.onload = () => {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = (now.getMonth() + 1).toString().padStart(2, '0');
+            const day = now.getDate().toString().padStart(2, '0');
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const seconds = now.getSeconds().toString().padStart(2, '0');
+            generationTimestampDisplay.textContent = `生成時刻: ${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+        };
 
         // --- メッセージ表示・リセット関数 ---
 
@@ -246,7 +262,7 @@
 
                         if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') { 
                             showErrorMessage('GASのWebアプリURLが設定されていません。');
-                            setTimeout(() => nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…', 30000); // 30秒後にステータスを戻す
+                            setTimeout(() => hideTemporaryMessages(), 30000); // 30秒後にメッセージを非表示
                             return;
                         }
 
@@ -280,10 +296,10 @@
                             console.error('GASへのアクセスエラー:', error);
                             showErrorMessage(`データ送信エラー: ${error.message}`);
                         } finally {
-                            // 成功/エラーメッセージを30秒表示後、非表示にし、メインステータスに戻す
+                            // 成功/エラーメッセージを30秒表示後、非表示にする
                             setTimeout(() => {
                                 hideTemporaryMessages();
-                                nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…'; // メインステータスに戻す
+                                // メインステータスは「NFCタグをスマートフォンにかざしてください…」のまま
                             }, 30000); 
                         }
                     };
@@ -298,10 +314,10 @@
                         }
                         showErrorMessage(errorMessageText);
                         
-                        // エラーメッセージを30秒表示後、非表示にし、メインステータスに戻す
+                        // エラーメッセージを30秒表示後、非表示にする
                         setTimeout(() => {
                             hideTemporaryMessages();
-                            nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…'; // メインステータスに戻す
+                            // メインステータスは「NFCタグをスマートフォンにかざしてください…」のまま
                         }, 30000); 
                     };
 
