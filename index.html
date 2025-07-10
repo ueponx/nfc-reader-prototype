@@ -3,384 +3,315 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NFC スプレッドシートアクセス＆ログ</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>NFC時刻記録システム</title>
     <style>
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f0f2f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.waiting {
+            background-color: #e3f2fd;
+            color: #1976d2;
+            border: 2px solid #bbdefb;
+        }
+        .status.success {
+            background-color: #e8f5e8;
+            color: #2e7d32;
+            border: 2px solid #a5d6a7;
+        }
+        .status.error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 2px solid #ef9a9a;
+        }
+        .debug-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .debug-section {
+            margin: 15px 0;
+        }
+        .debug-title {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover {
+            background-color: #1565c0;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .timestamp {
+            text-align: center;
+            color: #666;
+            margin: 10px 0;
         }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen p-4">
-    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
-        <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">NFC スプレッドシート<br>アクセス＆ログ</h1>
-
-        <!-- Scan Button -->
-        <button id="scanButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75">
-            NFCをスキャン
-        </button>
-
-        <!-- Status Message -->
-        <p id="nfcStatus" class="mt-6 text-center text-gray-600 text-lg">
-            NFCタグをスキャンしてください
-        </p>
-
-        <!-- Tag Information Display -->
-        <div id="tagInfoContainer" class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200 hidden">
-            <p class="text-blue-800 font-medium mb-2">🏷️ NFCタグ情報:</p>
-            <div id="tagInfo" class="text-blue-800 text-sm">
-                <!-- タグの詳細情報がここに表示されます -->
+<body>
+    <div class="container">
+        <h1>📱 NFC時刻記録システム</h1>
+        
+        <div id="status" class="status waiting">
+            NFCタグをスマートフォンに近づけてください
+        </div>
+        
+        <div class="timestamp" id="currentTime"></div>
+        
+        <button id="startButton" onclick="startNFC()">NFC読み込み開始</button>
+        
+        <div id="debugInfo" style="display: none;">
+            <div class="debug-section">
+                <div class="debug-title">🏷️ NFCタグ情報:</div>
+                <div class="debug-info" id="nfcData"></div>
             </div>
-        </div>
-
-        <!-- Request Info -->
-        <div id="fetchInfoContainer" class="mt-4 p-4 bg-green-50 rounded-lg border border-green-200 hidden">
-            <p class="text-green-800 font-medium mb-2">📡 リクエスト情報:</p>
-            <div id="fetchInfo" class="text-green-800 text-sm">
-                <!-- リクエストの詳細がここに表示されます -->
+            
+            <div class="debug-section">
+                <div class="debug-title">🌐 アクセスURL:</div>
+                <div class="debug-info" id="accessUrl"></div>
             </div>
-        </div>
-
-        <!-- Read Content Display -->
-        <div id="readContentContainer" class="mt-4 p-4 bg-gray-100 rounded-lg border border-gray-200 hidden">
-            <p class="text-gray-700 font-medium mb-2">読み取った内容:</p>
-            <div id="readContent" class="text-gray-800 text-sm break-all">
-                <!-- 読み取ったレコード内容がここに表示されます -->
+            
+            <div class="debug-section">
+                <div class="debug-title">📤 送信データ:</div>
+                <div class="debug-info" id="sendData"></div>
             </div>
-        </div>
-
-        <!-- Error Message -->
-        <div id="errorMessageContainer" class="mt-4 p-4 bg-red-100 border border-red-200 text-red-700 rounded-lg hidden">
-            <p id="errorMessage" class="font-medium"></p>
-        </div>
-
-        <!-- Success Message -->
-        <div id="successMessageContainer" class="mt-4 p-4 bg-green-100 border border-green-200 text-green-700 rounded-lg hidden">
-            <p id="successMessage" class="font-medium"></p>
-        </div>
-
-        <!-- Process Status -->
-        <div id="processStatus" class="mt-4 p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg hidden">
-            <div class="flex items-center">
-                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                <span id="processText">処理中...</span>
+            
+            <div class="debug-section">
+                <div class="debug-title">📥 レスポンス:</div>
+                <div class="debug-info" id="responseData"></div>
             </div>
         </div>
     </div>
 
-    <!-- Generation Timestamp -->
-    <div id="generationTimestamp" class="absolute bottom-4 right-4 text-xs text-gray-500"></div>
-
     <script>
-        // DOM要素の取得
-        const scanButton = document.getElementById('scanButton');
-        const nfcStatus = document.getElementById('nfcStatus');
-        const readContentContainer = document.getElementById('readContentContainer');
-        const readContentDisplay = document.getElementById('readContent');
-        const errorMessageContainer = document.getElementById('errorMessageContainer');
-        const errorMessage = document.getElementById('errorMessage');
-        const successMessageContainer = document.getElementById('successMessageContainer');
-        const successMessage = document.getElementById('successMessage');
-        const generationTimestampDisplay = document.getElementById('generationTimestamp');
-        const processStatus = document.getElementById('processStatus');
-        const processText = document.getElementById('processText');
-        const tagInfoContainer = document.getElementById('tagInfoContainer');
-        const tagInfo = document.getElementById('tagInfo');
-        const fetchInfoContainer = document.getElementById('fetchInfoContainer');
-        const fetchInfo = document.getElementById('fetchInfo');
+        let isNFCActive = false;
 
-        // GAS WebアプリURL（固定）
-        const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzMBcRkypaNHKm_3Z_22eQfsCa5jBLnhq5Py9jy215PV7hpjrTwkHCvqeYGU-Perso/exec';
-
-        let ndefReaderInstance = null;
-        let isScanningActive = false;
-
-        // --- ページロード時に生成時刻を表示 ---
-        window.onload = () => {
+        // 現在時刻の表示を更新
+        function updateCurrentTime() {
             const now = new Date();
-            const year = now.getFullYear();
-            const month = (now.getMonth() + 1).toString().padStart(2, '0');
-            const day = now.getDate().toString().padStart(2, '0');
-            const hours = now.getHours().toString().padStart(2, '0');
-            const minutes = now.getMinutes().toString().padStart(2, '0');
-            const seconds = now.getSeconds().toString().padStart(2, '0');
-            generationTimestampDisplay.textContent = `生成時刻: ${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
-        };
-
-        // --- メッセージ表示・リセット関数 ---
-        function showErrorMessage(message) {
-            errorMessage.textContent = message;
-            errorMessageContainer.classList.remove('hidden');
-            // エラー時でも全ての情報を表示したままにする
-            successMessageContainer.classList.add('hidden');
-            processStatus.classList.add('hidden');
+            const timeString = now.toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('currentTime').textContent = `現在時刻: ${timeString}`;
         }
 
-        function showSuccessMessage(message) {
-            successMessage.textContent = message;
-            successMessageContainer.classList.remove('hidden');
-            errorMessageContainer.classList.add('hidden');
-            processStatus.classList.add('hidden');
-            // 成功時も全ての情報を表示したままにする
+        // 1秒ごとに時刻を更新
+        setInterval(updateCurrentTime, 1000);
+        updateCurrentTime();
+
+        // ステータス表示を更新
+        function updateStatus(message, type = 'waiting') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
         }
 
-        function showProcessStatus(message) {
-            processText.textContent = message;
-            processStatus.classList.remove('hidden');
-            errorMessageContainer.classList.add('hidden');
-            successMessageContainer.classList.add('hidden');
-            // 処理中も全ての情報を表示したままにする
+        // デバッグ情報を表示
+        function showDebugInfo(nfcData, url, sendData, response) {
+            const debugInfo = document.getElementById('debugInfo');
+            
+            document.getElementById('nfcData').textContent = JSON.stringify(nfcData, null, 2);
+            document.getElementById('accessUrl').textContent = url;
+            document.getElementById('sendData').textContent = JSON.stringify(sendData, null, 2);
+            document.getElementById('responseData').textContent = JSON.stringify(response, null, 2);
+            
+            debugInfo.style.display = 'block';
         }
 
-        function hideTemporaryMessages() {
-            errorMessageContainer.classList.add('hidden');
-            successMessageContainer.classList.add('hidden');
-            processStatus.classList.add('hidden');
-            // 読み取り内容、タグ情報、Fetch情報は次回スキャンまで表示したまま
-        }
+        // データを送信
+        async function sendTimestamp(url) {
+            const timestamp = new Date().toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
 
-        function clearAllInfo() {
-            // 新しいスキャン開始時にのみ全ての情報をクリア
-            readContentContainer.classList.add('hidden');
-            errorMessageContainer.classList.add('hidden');
-            successMessageContainer.classList.add('hidden');
-            processStatus.classList.add('hidden');
-            tagInfoContainer.classList.add('hidden');
-            fetchInfoContainer.classList.add('hidden');
-            readContentDisplay.innerHTML = '';
-            tagInfo.innerHTML = '';
-            fetchInfo.innerHTML = '';
-        }
+            const sendData = {
+                timestamp: timestamp,
+                device: 'Android NFC',
+                userAgent: navigator.userAgent
+            };
 
-        function resetToInitialState() {
-            nfcStatus.textContent = 'NFCタグをスキャンしてください';
-            hideTemporaryMessages(); // タグ情報とFetch情報は残す
+            try {
+                updateStatus('データを送信中...', 'waiting');
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(sendData)
+                });
 
-            scanButton.classList.remove('bg-purple-600'); 
-            scanButton.classList.add('bg-blue-600', 'hover:bg-blue-700'); 
-            scanButton.disabled = false; 
-            scanButton.textContent = 'NFCをスキャン';
+                const responseText = await response.text();
+                let responseData;
+                
+                try {
+                    responseData = JSON.parse(responseText);
+                } catch {
+                    responseData = { raw: responseText };
+                }
 
-            if (ndefReaderInstance) {
-                ndefReaderInstance.abort().catch(e => console.error("Failed to abort NDEFReader:", e));
-                ndefReaderInstance = null;
+                if (response.ok) {
+                    updateStatus(`✅ 送信成功！時刻: ${timestamp}`, 'success');
+                } else {
+                    updateStatus(`⚠️ 送信エラー (${response.status})`, 'error');
+                }
+
+                return { sendData, responseData, url };
+
+            } catch (error) {
+                const errorData = {
+                    error: error.message,
+                    timestamp: timestamp
+                };
+                
+                updateStatus(`❌ 通信エラー: ${error.message}`, 'error');
+                return { sendData, responseData: errorData, url };
             }
-            isScanningActive = false;
         }
 
-        // --- 現在時刻を日本のフォーマットで取得 ---
-        function getCurrentJapanTime() {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = (now.getMonth() + 1).toString().padStart(2, '0');
-            const day = now.getDate().toString().padStart(2, '0');
-            const hours = now.getHours().toString().padStart(2, '0');
-            const minutes = now.getMinutes().toString().padStart(2, '0');
-            const seconds = now.getSeconds().toString().padStart(2, '0');
-            return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
-        }
+        // NFC読み込み開始
+        async function startNFC() {
+            if (!('NDEFReader' in window)) {
+                updateStatus('❌ このブラウザはNFCに対応していません', 'error');
+                return;
+            }
 
-        // --- スプレッドシートアクセス＆ログ記録関数 ---
-        async function accessSpreadsheetAndLog(spreadsheetUrl) {
-            // スプレッドシートのURLチェック
-            if (!spreadsheetUrl.includes('docs.google.com/spreadsheets')) {
-                showErrorMessage('読み取ったURLはGoogleスプレッドシートではありません。');
+            if (isNFCActive) {
+                updateStatus('NFC読み込みは既に開始されています', 'waiting');
                 return;
             }
 
             try {
-                // 1. ログ記録
-                showProcessStatus('アクセスログを記録中...');
+                const ndef = new NDEFReader();
+                await ndef.scan();
                 
-                const accessTime = getCurrentJapanTime();
-                
-                // GETリクエスト用のURLパラメータを作成
-                const params = new URLSearchParams({
-                    action: 'log_access',
-                    spreadsheet_url: spreadsheetUrl,
-                    access_time: accessTime,
-                    user_agent: navigator.userAgent
-                });
-                
-                const logRequestUrl = `${GAS_WEBAPP_URL}?${params.toString()}`;
+                isNFCActive = true;
+                updateStatus('🔍 NFCタグを探しています...', 'waiting');
+                document.getElementById('startButton').disabled = true;
 
-                // リクエスト情報を表示
-                fetchInfo.innerHTML = `
-                    <p><strong>リクエスト方法:</strong> GET (新しいウィンドウ)</p>
-                    <p><strong>送信先URL:</strong><br><span class="font-mono text-xs break-all">${GAS_WEBAPP_URL}</span></p>
-                    <p class="mt-2"><strong>送信パラメータ:</strong></p>
-                    <div class="bg-white p-2 rounded border mt-1 font-mono text-xs">
-                        action: log_access<br>
-                        spreadsheet_url: ${spreadsheetUrl}<br>
-                        access_time: ${accessTime}<br>
-                        user_agent: ${navigator.userAgent.substring(0, 50)}...
-                    </div>
-                `;
-                fetchInfoContainer.classList.remove('hidden');
-
-                console.log('GASにGETリクエスト送信（新しいウィンドウ）:', logRequestUrl);
-
-                // ログ記録用の小さなウィンドウを開く
-                const logWindow = window.open(
-                    logRequestUrl, 
-                    'logWindow', 
-                    'width=400,height=300,scrollbars=yes,resizable=yes'
-                );
-
-                // ログウィンドウの処理完了を待つ（簡易的）
-                setTimeout(() => {
-                    showProcessStatus('スプレッドシートを開いています...');
+                ndef.addEventListener('reading', async ({ message, serialNumber }) => {
+                    console.log('NFC読み込み完了:', message);
                     
-                    // 2. スプレッドシートにアクセス
-                    setTimeout(() => {
-                        window.open(spreadsheetUrl, '_blank');
-                        showSuccessMessage(`ログ記録リクエストを送信し、スプレッドシートを開きました！\nアクセス時刻: ${accessTime}\n\n※ログ記録の成功/失敗は別ウィンドウで確認できます`);
+                    let url = null;
+                    const nfcData = {
+                        serialNumber: serialNumber,
+                        records: []
+                    };
+
+                    // NFCデータを解析
+                    for (const record of message.records) {
+                        const recordData = {
+                            recordType: record.recordType,
+                            mediaType: record.mediaType
+                        };
+
+                        if (record.recordType === 'url') {
+                            url = record.data;
+                            recordData.data = url;
+                        } else if (record.recordType === 'text') {
+                            const decoder = new TextDecoder();
+                            const text = decoder.decode(record.data);
+                            recordData.data = text;
+                            
+                            // テキストがURLの場合
+                            if (text.startsWith('http')) {
+                                url = text;
+                            }
+                        } else {
+                            recordData.data = new Uint8Array(record.data);
+                        }
                         
-                        // 成功時は長めに表示してからリセット
-                        setTimeout(() => {
-                            resetToInitialState();
-                        }, 15000);
-                    }, 1000);
-                }, 2000);
+                        nfcData.records.push(recordData);
+                    }
+
+                    if (url) {
+                        updateStatus('📡 NFCタグからURLを読み込みました', 'success');
+                        
+                        // データを送信
+                        const result = await sendTimestamp(url);
+                        
+                        // デバッグ情報を表示
+                        showDebugInfo(nfcData, result.url, result.sendData, result.responseData);
+                    } else {
+                        updateStatus('❌ NFCタグにURLが見つかりません', 'error');
+                        showDebugInfo(nfcData, 'URLなし', null, null);
+                    }
+
+                    // 次のタグ読み込みのために状態をリセット
+                    setTimeout(() => {
+                        isNFCActive = false;
+                        document.getElementById('startButton').disabled = false;
+                        updateStatus('📱 次のNFCタグをお待ちしています', 'waiting');
+                    }, 2000);
+                });
+
+                ndef.addEventListener('readingerror', (error) => {
+                    console.error('NFC読み込みエラー:', error);
+                    updateStatus('❌ NFC読み込みエラーが発生しました', 'error');
+                    isNFCActive = false;
+                    document.getElementById('startButton').disabled = false;
+                });
 
             } catch (error) {
-                console.error('処理エラー:', error);
-                showErrorMessage(`処理エラー: ${error.message}`);
-                // エラー時は自動リセットしない - 情報を保持
+                console.error('NFC開始エラー:', error);
+                updateStatus(`❌ NFCの開始に失敗: ${error.message}`, 'error');
+                isNFCActive = false;
+                document.getElementById('startButton').disabled = false;
             }
         }
 
-        // --- NFCスキャンボタンイベントリスナー ---
-        scanButton.addEventListener('click', async () => {
-            if (isScanningActive) {
-                hideTemporaryMessages(); // タグ情報とFetch情報は残す
-                nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…';
-                return;
-            }
-
-            clearAllInfo(); // 新しいスキャン開始時に全ての情報をクリア
-
-            scanButton.classList.remove('bg-blue-600', 'hover:bg-blue-700'); 
-            scanButton.classList.add('bg-purple-600'); 
-            scanButton.disabled = true; 
-            scanButton.textContent = 'NFC読み取り中';
-
-            nfcStatus.textContent = 'NFCタグをスマートフォンにかざしてください…'; 
-
-            isScanningActive = true;
-
-            if ('NDEFReader' in window) {
-                try {
-                    ndefReaderInstance = new NDEFReader(); 
-
-                    ndefReaderInstance.onreading = async event => {
-                        nfcStatus.textContent = 'NFCタグを読み取りました！';
-                        
-                        // タグ基本情報を表示
-                        tagInfo.innerHTML = `
-                            <p><strong>レコード数:</strong> ${event.message.records.length}</p>
-                            <p><strong>読み取り時刻:</strong> ${getCurrentJapanTime()}</p>
-                        `;
-                        tagInfoContainer.classList.remove('hidden');
-
-                        readContentContainer.classList.remove('hidden');
-
-                        let contentHtml = '';
-                        const decoder = new TextDecoder();
-                        let spreadsheetUrl = null;
-
-                        if (event.message.records.length === 0) {
-                            contentHtml = '<p>このNFCタグにはレコードが含まれていません。</p>';
-                        } else {
-                            event.message.records.forEach((record, index) => {
-                                contentHtml += `<div class="mb-2 p-2 border border-gray-300 rounded-md bg-white">`;
-                                contentHtml += `<p class="font-semibold">レコード ${index + 1}:</p>`;
-                                contentHtml += `<p><strong>タイプ:</strong> ${record.recordType}</p>`;
-
-                                let recordData = '';
-                                try {
-                                    if (record.recordType === 'text') {
-                                        const textDecoder = new TextDecoder(record.encoding || 'utf-8');
-                                        recordData = textDecoder.decode(record.data);
-                                        contentHtml += `<p><strong>内容 (テキスト):</strong> <span class="text-green-700">${recordData}</span></p>`;
-                                        // テキストにスプレッドシートURLが含まれているかチェック
-                                        if (recordData.includes('docs.google.com/spreadsheets')) {
-                                            spreadsheetUrl = recordData;
-                                        }
-                                    } else if (record.recordType === 'url') {
-                                        recordData = decoder.decode(record.data);
-                                        contentHtml += `<p><strong>内容 (URL):</strong> <a href="${recordData}" target="_blank" class="text-blue-600 hover:underline">${recordData}</a></p>`;
-                                        spreadsheetUrl = recordData;
-                                    } else if (record.recordType === 'mime') {
-                                        contentHtml += `<p><strong>MIMEタイプ:</strong> ${record.mediaType}</p>`;
-                                        contentHtml += `<p><strong>データ長:</strong> ${record.data.byteLength} バイト</p>`;
-                                    } else {
-                                        contentHtml += `<p><strong>データ長:</strong> ${record.data.byteLength} バイト</p>`;
-                                        const hexData = Array.from(new Uint8Array(record.data))
-                                                            .map(b => b.toString(16).padStart(2, '0'))
-                                                            .join(' ');
-                                        contentHtml += `<p><strong>生データ (一部):</strong> <span class="font-mono text-xs">${hexData.substring(0, 100)}${hexData.length > 100 ? '...' : ''}</span></p>`;
-                                    }
-                                } catch (e) {
-                                    contentHtml += `<p class="text-red-500">データデコードエラー: ${e.message}</p>`;
-                                }
-                                contentHtml += `</div>`;
-                            });
-                        }
-                        readContentDisplay.innerHTML = contentHtml;
-
-                        // タグ詳細情報を更新
-                        if (spreadsheetUrl) {
-                            tagInfo.innerHTML += `<p class="mt-2"><strong>検出URL:</strong><br><span class="font-mono text-xs break-all text-green-700">${spreadsheetUrl}</span></p>`;
-                        }
-
-                        // スプレッドシートURLが見つかった場合、2秒後にログ記録＆アクセス
-                        if (spreadsheetUrl) {
-                            setTimeout(() => {
-                                accessSpreadsheetAndLog(spreadsheetUrl);
-                            }, 2000);
-                        } else {
-                            // スプレッドシートURLが見つからない場合
-                            setTimeout(() => {
-                                showErrorMessage('NFCタグにGoogleスプレッドシートのURLが含まれていません。');
-                                // エラー時は自動リセットしない - 情報を保持
-                            }, 2000);
-                        }
-                    };
-
-                    ndefReaderInstance.onreadingerror = error => {
-                        let errorMessageText = '';
-                        if (error.message) {
-                            errorMessageText = `NFC読み取りエラー: ${error.message}`;
-                        } else {
-                            errorMessageText = 'NFCタグを検知しましたが、内容の読み取りに失敗しました。';
-                        }
-                        showErrorMessage(errorMessageText);
-                        
-                        // エラー時は自動リセットしない - 情報を保持
-                    };
-
-                    ndefReaderInstance.scan().catch(error => {
-                        showErrorMessage(`NFCスキャンを開始できませんでした: ${error.message}`); 
-                        nfcStatus.textContent = 'NFCスキャンを停止しました。';
-                        
-                        setTimeout(() => resetToInitialState(), 5000);
-                    });
-
-                } catch (error) {
-                    showErrorMessage(`NFCリーダーの初期化に失敗しました: ${error.message}`);
-                    nfcStatus.textContent = 'NFCスキャンを停止しました。';
-                    
-                    setTimeout(() => resetToInitialState(), 5000);
-                }
-            } else {
-                showErrorMessage('お使いのブラウザはWeb NFC APIをサポートしていません。(Android版Chrome推奨)');
-                nfcStatus.textContent = 'Web NFC APIが利用できません。';
-                
-                setTimeout(() => resetToInitialState(), 5000);
+        // ページ読み込み完了時の初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!('NDEFReader' in window)) {
+                updateStatus('❌ このデバイスはNFCに対応していません', 'error');
+                document.getElementById('startButton').disabled = true;
             }
         });
     </script>
