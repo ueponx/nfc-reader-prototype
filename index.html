@@ -19,12 +19,33 @@
         <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">NFC スプレッドシート<br>アクセス＆ログ</h1>
 
         <!-- GAS URL設定 -->
-        <div class="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-            <p class="text-yellow-800 font-medium mb-2">GAS WebアプリURL:</p>
+        <div class="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
+            <p class="text-green-800 font-medium mb-2">GAS WebアプリURL (設定済み):</p>
             <input type="text" id="gasUrlInput" class="w-full p-2 border border-gray-300 rounded-md text-xs" 
                    value="https://script.google.com/macros/s/AKfycbzMBcRkypaNHKm_3Z_22eQfsCa5jBLnhq5Py9jy215PV7hpjrTwkHCvqeYGU-Perso/exec"
                    placeholder="https://script.google.com/macros/s/...../exec">
-            <p class="text-xs text-yellow-700 mt-1">※ログ記録用のGAS WebアプリURLを入力してください</p>
+            <p class="text-xs text-green-700 mt-1">✓ ログ記録用のGAS WebアプリURLが設定されています</p>
+        </div>
+
+        <!-- ログ記録先スプレッドシート表示 -->
+        <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p class="text-blue-800 font-medium mb-2">📊 ログ記録先スプレッドシート:</p>
+            <a href="https://docs.google.com/spreadsheets/d/1cD1EuQImBECV20tioWw4coTSYFQSTg0j_zHfQ-QBFeU/edit" 
+               target="_blank" 
+               class="text-blue-600 hover:underline text-xs break-all block bg-white p-2 rounded border">
+                https://docs.google.com/spreadsheets/d/1cD1EuQImBECV20tioWw4coTSYFQSTg0j_zHfQ-QBFeU/edit
+            </a>
+            <p class="text-xs text-blue-600 mt-2">👆 クリックでアクセスログの記録先を確認できます</p>
+        </div>
+
+        <!-- NFCタグ設定説明 -->
+        <div class="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <p class="text-yellow-800 font-medium mb-2">⚠️ NFCタグに書き込むURL:</p>
+            <p class="text-xs text-yellow-700 mb-2">アクセスしたいGoogleスプレッドシートのURLを書き込んでください</p>
+            <div class="bg-white p-2 rounded border text-xs text-gray-600">
+                例: https://docs.google.com/spreadsheets/d/XXXXXXXXXX/edit
+            </div>
+            <p class="text-xs text-yellow-600 mt-1">※ GAS WebアプリURLではありません</p>
         </div>
 
         <!-- Scan Button -->
