@@ -18,36 +18,6 @@
     <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
         <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">NFC スプレッドシート<br>アクセス＆ログ</h1>
 
-        <!-- GAS URL設定 -->
-        <div class="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
-            <p class="text-green-800 font-medium mb-2">GAS WebアプリURL (設定済み):</p>
-            <input type="text" id="gasUrlInput" class="w-full p-2 border border-gray-300 rounded-md text-xs" 
-                   value="https://script.google.com/macros/s/AKfycbzMBcRkypaNHKm_3Z_22eQfsCa5jBLnhq5Py9jy215PV7hpjrTwkHCvqeYGU-Perso/exec"
-                   placeholder="https://script.google.com/macros/s/...../exec">
-            <p class="text-xs text-green-700 mt-1">✓ ログ記録用のGAS WebアプリURLが設定されています</p>
-        </div>
-
-        <!-- ログ記録先スプレッドシート表示 -->
-        <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p class="text-blue-800 font-medium mb-2">📊 ログ記録先スプレッドシート:</p>
-            <a href="https://docs.google.com/spreadsheets/d/1cD1EuQImBECV20tioWw4coTSYFQSTg0j_zHfQ-QBFeU/edit" 
-               target="_blank" 
-               class="text-blue-600 hover:underline text-xs break-all block bg-white p-2 rounded border">
-                https://docs.google.com/spreadsheets/d/1cD1EuQImBECV20tioWw4coTSYFQSTg0j_zHfQ-QBFeU/edit
-            </a>
-            <p class="text-xs text-blue-600 mt-2">👆 クリックでアクセスログの記録先を確認できます</p>
-        </div>
-
-        <!-- NFCタグ設定説明 -->
-        <div class="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-            <p class="text-yellow-800 font-medium mb-2">⚠️ NFCタグに書き込むURL:</p>
-            <p class="text-xs text-yellow-700 mb-2">アクセスしたいGoogleスプレッドシートのURLを書き込んでください</p>
-            <div class="bg-white p-2 rounded border text-xs text-gray-600">
-                例: https://docs.google.com/spreadsheets/d/XXXXXXXXXX/edit
-            </div>
-            <p class="text-xs text-yellow-600 mt-1">※ GAS WebアプリURLではありません</p>
-        </div>
-
         <!-- Scan Button -->
         <button id="scanButton" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75">
             NFCをスキャン
@@ -55,8 +25,24 @@
 
         <!-- Status Message -->
         <p id="nfcStatus" class="mt-6 text-center text-gray-600 text-lg">
-            スキャンボタンを押してNFCタグをかざしてください
+            NFCタグをスキャンしてください
         </p>
+
+        <!-- Tag Information Display -->
+        <div id="tagInfoContainer" class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200 hidden">
+            <p class="text-blue-800 font-medium mb-2">🏷️ NFCタグ情報:</p>
+            <div id="tagInfo" class="text-blue-800 text-sm">
+                <!-- タグの詳細情報がここに表示されます -->
+            </div>
+        </div>
+
+        <!-- Fetch Request Info -->
+        <div id="fetchInfoContainer" class="mt-4 p-4 bg-green-50 rounded-lg border border-green-200 hidden">
+            <p class="text-green-800 font-medium mb-2">📡 送信リクエスト情報:</p>
+            <div id="fetchInfo" class="text-green-800 text-sm">
+                <!-- fetchリクエストの詳細がここに表示されます -->
+            </div>
+        </div>
 
         <!-- Read Content Display -->
         <div id="readContentContainer" class="mt-4 p-4 bg-gray-100 rounded-lg border border-gray-200 hidden">
@@ -99,9 +85,15 @@
         const successMessageContainer = document.getElementById('successMessageContainer');
         const successMessage = document.getElementById('successMessage');
         const generationTimestampDisplay = document.getElementById('generationTimestamp');
-        const gasUrlInput = document.getElementById('gasUrlInput');
         const processStatus = document.getElementById('processStatus');
         const processText = document.getElementById('processText');
+        const tagInfoContainer = document.getElementById('tagInfoContainer');
+        const tagInfo = document.getElementById('tagInfo');
+        const fetchInfoContainer = document.getElementById('fetchInfoContainer');
+        const fetchInfo = document.getElementById('fetchInfo');
+
+        // GAS WebアプリURL（固定）
+        const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzMBcRkypaNHKm_3Z_22eQfsCa5jBLnhq5Py9jy215PV7hpjrTwkHCvqeYGU-Perso/exec';
 
         let ndefReaderInstance = null;
         let isScanningActive = false;
@@ -125,6 +117,8 @@
             readContentContainer.classList.add('hidden');
             successMessageContainer.classList.add('hidden');
             processStatus.classList.add('hidden');
+            tagInfoContainer.classList.add('hidden');
+            fetchInfoContainer.classList.add('hidden');
         }
 
         function showSuccessMessage(message) {
@@ -146,7 +140,11 @@
             errorMessageContainer.classList.add('hidden');
             successMessageContainer.classList.add('hidden');
             processStatus.classList.add('hidden');
+            tagInfoContainer.classList.add('hidden');
+            fetchInfoContainer.classList.add('hidden');
             readContentDisplay.innerHTML = '';
+            tagInfo.innerHTML = '';
+            fetchInfo.innerHTML = '';
         }
 
         function resetToInitialState() {
@@ -179,13 +177,6 @@
 
         // --- スプレッドシートアクセス＆ログ記録関数 ---
         async function accessSpreadsheetAndLog(spreadsheetUrl) {
-            const gasUrl = gasUrlInput.value.trim();
-            
-            if (!gasUrl) {
-                showErrorMessage('GAS WebアプリURLが設定されていません。');
-                return;
-            }
-
             // スプレッドシートのURLチェック
             if (!spreadsheetUrl.includes('docs.google.com/spreadsheets')) {
                 showErrorMessage('読み取ったURLはGoogleスプレッドシートではありません。');
@@ -204,7 +195,20 @@
                     user_agent: navigator.userAgent
                 };
 
-                const logResponse = await fetch(gasUrl, {
+                // Fetchリクエスト情報を表示
+                fetchInfo.innerHTML = `
+                    <p><strong>送信先URL:</strong><br><span class="font-mono text-xs break-all">${GAS_WEBAPP_URL}</span></p>
+                    <p class="mt-2"><strong>送信データ:</strong></p>
+                    <div class="bg-white p-2 rounded border mt-1 font-mono text-xs">
+                        ${JSON.stringify(logPayload, null, 2)}
+                    </div>
+                `;
+                fetchInfoContainer.classList.remove('hidden');
+
+                console.log('GASに送信するデータ:', logPayload);
+                console.log('GAS URL:', GAS_WEBAPP_URL);
+
+                const logResponse = await fetch(GAS_WEBAPP_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -212,9 +216,16 @@
                     body: JSON.stringify(logPayload)
                 });
 
+                console.log('GASからのレスポンス状態:', logResponse.status);
+                
                 if (!logResponse.ok) {
-                    throw new Error(`ログ記録エラー: ${logResponse.status}`);
+                    const errorText = await logResponse.text();
+                    console.error('GASエラー詳細:', errorText);
+                    throw new Error(`ログ記録エラー: ${logResponse.status} - ${errorText}`);
                 }
+
+                const responseText = await logResponse.text();
+                console.log('GAS成功レスポンス:', responseText);
 
                 // 2. スプレッドシートにアクセス
                 showProcessStatus('スプレッドシートを開いています...');
@@ -245,12 +256,6 @@
                 return;
             }
 
-            const gasUrl = gasUrlInput.value.trim();
-            if (!gasUrl) {
-                showErrorMessage('GAS WebアプリURLを入力してください。');
-                return;
-            }
-
             hideTemporaryMessages();
 
             scanButton.classList.remove('bg-blue-600', 'hover:bg-blue-700'); 
@@ -268,6 +273,14 @@
 
                     ndefReaderInstance.onreading = async event => {
                         nfcStatus.textContent = 'NFCタグを読み取りました！';
+                        
+                        // タグ基本情報を表示
+                        tagInfo.innerHTML = `
+                            <p><strong>レコード数:</strong> ${event.message.records.length}</p>
+                            <p><strong>読み取り時刻:</strong> ${getCurrentJapanTime()}</p>
+                        `;
+                        tagInfoContainer.classList.remove('hidden');
+
                         readContentContainer.classList.remove('hidden');
 
                         let contentHtml = '';
@@ -313,6 +326,11 @@
                             });
                         }
                         readContentDisplay.innerHTML = contentHtml;
+
+                        // タグ詳細情報を更新
+                        if (spreadsheetUrl) {
+                            tagInfo.innerHTML += `<p class="mt-2"><strong>検出URL:</strong><br><span class="font-mono text-xs break-all text-green-700">${spreadsheetUrl}</span></p>`;
+                        }
 
                         // スプレッドシートURLが見つかった場合、2秒後にログ記録＆アクセス
                         if (spreadsheetUrl) {
