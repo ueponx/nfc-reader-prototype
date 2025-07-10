@@ -215,7 +215,7 @@
                     ndefReaderInstance.onreading = async event => {
                         nfcStatus.textContent = 'NFCタグを読み取りました！'; // 一時的な成功ステータス
                         hideTemporaryMessages(); // 前のメッセージをクリア
-                        readContentContainer.classList.remove('hidden');
+                        readContentContainer.classList.remove('hidden'); // 読み取り内容を表示
 
                         let contentHtml = '';
                         const decoder = new TextDecoder();
@@ -257,52 +257,56 @@
                         }
                         readContentDisplay.innerHTML = contentHtml;
 
-                        // --- Google Apps Script (GAS) へのデータ送信 ---
-                        const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbxc34pxlopp11fGMV7EUgNulDLyXc_j8fJ7uacqrhHppx2iOHu28a38-EWmbI-aLqX4/exec'; 
+                        // --- 読み込み内容を10秒間表示した後、GAS送信を開始 ---
+                        setTimeout(async () => {
+                            // --- Google Apps Script (GAS) へのデータ送信 ---
+                            const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbxc34pxlopp11fGMV7EUgNulDLyXc_j8fJ7uacqrhHppx2iOHu28a38-EWmbI-aLqX4/exec'; 
 
-                        if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') { 
-                            showErrorMessage('GASのWebアプリURLが設定されていません。');
-                            setTimeout(() => hideTemporaryMessages(), 30000); // 30秒後にメッセージを非表示
-                            return;
-                        }
-
-                        let uidToSend = nfcUrl;
-                        if (!uidToSend) {
-                            uidToSend = selectedFileContent ? `ファイル内容: ${selectedFileContent.substring(0, 50)}${selectedFileContent.length > 50 ? '...' : ''}` : 'URLなし / ファイルなし';
-                        }
-
-                        const payload = {
-                            uid: uidToSend, 
-                        };
-
-                        try {
-                            const response = await fetch(gasWebAppUrl, {
-                                method: 'POST', 
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify(payload)
-                            });
-
-                            if (!response.ok) {
-                                throw new Error(`HTTPエラー! ステータス: ${response.status}`);
+                            if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') { 
+                                showErrorMessage('GASのWebアプリURLが設定されていません。');
+                                setTimeout(() => hideTemporaryMessages(), 30000); // 30秒後にメッセージを非表示
+                                return;
                             }
 
-                            const result = await response.text();
-                            console.log('GASからの応答:', result);
-                            showSuccessMessage('データをGoogleスプレッドシートに送信しました！');
+                            let uidToSend = nfcUrl;
+                            if (!uidToSend) {
+                                uidToSend = selectedFileContent ? `ファイル内容: ${selectedFileContent.substring(0, 50)}${selectedFileContent.length > 50 ? '...' : ''}` : 'URLなし / ファイルなし';
+                            }
 
-                        } catch (error) {
-                            console.error('GASへのアクセスエラー:', error);
-                            showErrorMessage(`データ送信エラー: ${error.message}`);
-                        } finally {
-                            // 成功/エラーメッセージを30秒表示後、非表示にする
-                            setTimeout(() => {
-                                hideTemporaryMessages();
-                                // メインステータスは「NFCタグをスマートフォンにかざしてください…」のまま
-                            }, 30000); 
-                        }
-                    };
+                            const payload = {
+                                uid: uidToSend, 
+                            };
+
+                            try {
+                                const response = await fetch(gasWebAppUrl, {
+                                    method: 'POST', 
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify(payload)
+                                });
+
+                                if (!response.ok) {
+                                    throw new Error(`HTTPエラー! ステータス: ${response.status}`);
+                                }
+
+                                const result = await response.text();
+                                console.log('GASからの応答:', result);
+                                showSuccessMessage('データをGoogleスプレッドシートに送信しました！');
+
+                            } catch (error) {
+                                console.error('GASへのアクセスエラー:', error);
+                                showErrorMessage(`データ送信エラー: ${error.message}`);
+                            } finally {
+                                // GAS送信結果メッセージを30秒表示後、非表示にする
+                                setTimeout(() => {
+                                    hideTemporaryMessages();
+                                    // メインステータスは「NFCタグをスマートフォンにかざしてください…」のまま
+                                }, 30000); 
+                            }
+                        }, 10000); // 10秒後にGAS送信を開始
+
+                    }; // end of ndefReaderInstance.onreading
 
                     // onreadingerrorイベントリスナー
                     ndefReaderInstance.onreadingerror = error => {
