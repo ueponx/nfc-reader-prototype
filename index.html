@@ -112,7 +112,7 @@
         function showErrorMessage(message) {
             errorMessage.textContent = message;
             errorMessageContainer.classList.remove('hidden');
-            readContentContainer.classList.add('hidden');
+            readContentContainer.classList.add('hidden'); // エラー時は読み取り内容を隠す
             successMessageContainer.classList.add('hidden');
         }
 
@@ -124,7 +124,7 @@
             successMessage.textContent = message;
             successMessageContainer.classList.remove('hidden');
             errorMessageContainer.classList.add('hidden');
-            readContentContainer.classList.add('hidden'); // 成功時は読み取り内容を隠す
+            // readContentContainer は表示されたままにする
         }
 
         /**
@@ -214,7 +214,7 @@
                     // onreadingイベントリスナー
                     ndefReaderInstance.onreading = async event => {
                         nfcStatus.textContent = 'NFCタグを読み取りました！'; // 一時的な成功ステータス
-                        hideTemporaryMessages(); // 前のメッセージをクリア
+                        // ここではhideTemporaryMessages()を呼ばず、readContentContainerを表示したままにする
                         readContentContainer.classList.remove('hidden'); // 読み取り内容を表示
 
                         let contentHtml = '';
@@ -264,7 +264,8 @@
 
                             if (gasWebAppUrl === '【ここにデプロイしたGASのWebアプリURLを貼り付ける】') { 
                                 showErrorMessage('GASのWebアプリURLが設定されていません。');
-                                setTimeout(() => hideTemporaryMessages(), 30000); // 30秒後にメッセージを非表示
+                                // メッセージは30秒表示後も残るが、エラーメッセージボックスは30秒後に非表示
+                                setTimeout(() => errorMessageContainer.classList.add('hidden'), 30000); 
                                 return;
                             }
 
@@ -300,8 +301,9 @@
                             } finally {
                                 // GAS送信結果メッセージを30秒表示後、非表示にする
                                 setTimeout(() => {
-                                    hideTemporaryMessages();
-                                    // メインステータスは「NFCタグをスマートフォンにかざしてください…」のまま
+                                    successMessageContainer.classList.add('hidden'); // 成功メッセージを非表示
+                                    errorMessageContainer.classList.add('hidden'); // エラーメッセージも非表示（fetchエラーの場合）
+                                    // readContentContainer はそのまま表示を継続
                                 }, 30000); 
                             }
                         }, 10000); // 10秒後にGAS送信を開始
@@ -316,12 +318,12 @@
                         } else {
                             errorMessageText = 'NFCタグを検知しましたが、内容の読み取りに失敗しました。';
                         }
-                        showErrorMessage(errorMessageText);
+                        showErrorMessage(errorMessageText); // これが errorMessageContainer を表示し、readContentContainer を隠す
                         
                         // エラーメッセージを30秒表示後、非表示にする
                         setTimeout(() => {
-                            hideTemporaryMessages();
-                            // メインステータスは「NFCタグをスマートフォンにかざしてください…」のまま
+                            errorMessageContainer.classList.add('hidden'); // エラーメッセージを非表示
+                            // readContentContainer は onreadingerror の場合は既に隠れているので、何もしない
                         }, 30000); 
                     };
 
