@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NFC時刻記録システム</title>
+    <title>NFCチェックインシステム</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -83,14 +83,21 @@
             color: #666;
             margin: 10px 0;
         }
+        .checkin-icon {
+            font-size: 48px;
+            text-align: center;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📱 NFC時刻記録システム</h1>
+        <h1>📋 NFCチェックインシステム</h1>
+        
+        <div class="checkin-icon">🏢</div>
         
         <div id="status" class="status waiting">
-            NFCタグをスマートフォンに近づけてください
+            NFCタグをスマートフォンに近づけてチェックインしてください
         </div>
         
         <div class="timestamp" id="currentTime"></div>
@@ -166,8 +173,8 @@
             debugInfo.style.display = 'block';
         }
 
-        // データを送信（GET方式とPOST方式両方試行）
-        async function sendTimestamp(url) {
+        // チェックインデータを送信（GET方式とPOST方式両方試行）
+        async function sendCheckinData(url) {
             const timestamp = new Date().toLocaleString('ja-JP', {
                 year: 'numeric',
                 month: '2-digit',
@@ -179,18 +186,19 @@
 
             const sendData = {
                 timestamp: timestamp,
+                action: 'checkin',
                 device: 'Android NFC',
                 userAgent: navigator.userAgent
             };
 
             // まずGET方式で試行
             try {
-                updateStatus('GET方式でテスト中...', 'waiting');
+                updateStatus('チェックイン処理中...', 'waiting');
                 
                 // URLパラメータとして時刻を送信
-                const getUrl = `${url}?timestamp=${encodeURIComponent(timestamp)}&device=AndroidNFC`;
+                const getUrl = `${url}?timestamp=${encodeURIComponent(timestamp)}&action=checkin&device=AndroidNFC`;
                 
-                console.log('GET URL:', getUrl);
+                console.log('チェックイン GET URL:', getUrl);
                 
                 const getResponse = await fetch(getUrl, {
                     method: 'GET',
@@ -200,13 +208,14 @@
                 console.log('GET応答:', getResponse);
                 
                 // no-corsモードでは応答の内容を読めないが、リクエスト自体は送信される
-                updateStatus(`✅ GET送信完了！時刻: ${timestamp}`, 'success');
+                updateStatus(`✅ チェックイン完了！時刻: ${timestamp}`, 'success');
                 
                 return { 
                     sendData, 
                     responseData: { 
                         method: 'GET',
                         status: 'no-cors mode - response opaque',
+                        action: 'checkin',
                         timestamp: timestamp 
                     }, 
                     url: getUrl 
@@ -217,7 +226,7 @@
                 
                 // GET方式が失敗した場合、POST方式を試行
                 try {
-                    updateStatus('POST方式で再試行中...', 'waiting');
+                    updateStatus('POST方式でチェックイン再試行中...', 'waiting');
                     
                     const response = await fetch(url, {
                         method: 'POST',
@@ -230,13 +239,14 @@
 
                     console.log('POST応答:', response);
                     
-                    updateStatus(`✅ POST送信完了！時刻: ${timestamp}`, 'success');
+                    updateStatus(`✅ チェックイン完了！時刻: ${timestamp}`, 'success');
 
                     return { 
                         sendData, 
                         responseData: { 
                             method: 'POST',
                             status: 'no-cors mode - response opaque',
+                            action: 'checkin',
                             timestamp: timestamp 
                         }, 
                         url 
@@ -248,11 +258,12 @@
                     const errorData = {
                         getError: getError.message,
                         postError: postError.message,
+                        action: 'checkin',
                         timestamp: timestamp,
                         url: url
                     };
                     
-                    updateStatus(`❌ 送信失敗: 両方式でエラー`, 'error');
+                    updateStatus(`❌ チェックイン失敗: 両方式でエラー`, 'error');
                     return { sendData, responseData: errorData, url };
                 }
             }
@@ -335,8 +346,8 @@
                     if (url) {
                         updateStatus('📡 NFCタグからURLを読み込みました', 'success');
                         
-                        // データを送信
-                        const result = await sendTimestamp(url);
+                        // チェックインデータを送信
+                        const result = await sendCheckinData(url);
                         
                         // デバッグ情報を表示
                         showDebugInfo(nfcData, result.url, result.sendData, result.responseData);
@@ -349,8 +360,8 @@
                     setTimeout(() => {
                         isNFCActive = false;
                         document.getElementById('startButton').disabled = false;
-                        updateStatus('📱 次のNFCタグをお待ちしています', 'waiting');
-                    }, 2000);
+                        updateStatus('📱 次のチェックインをお待ちしています', 'waiting');
+                    }, 3000); // 3秒後にリセット（チェックイン確認時間を長く）
                 });
 
                 ndef.addEventListener('readingerror', (error) => {
