@@ -242,17 +242,16 @@
                     window.open(spreadsheetUrl, '_blank');
                     showSuccessMessage(`ログを記録してスプレッドシートを開きました！\nアクセス時刻: ${accessTime}`);
                     
+                    // 成功時は長めに表示してからリセット
                     setTimeout(() => {
                         resetToInitialState();
-                    }, 5000);
+                    }, 10000);
                 }, 1000);
 
             } catch (error) {
                 console.error('処理エラー:', error);
                 showErrorMessage(`処理エラー: ${error.message}`);
-                setTimeout(() => {
-                    resetToInitialState();
-                }, 5000);
+                // エラー時は自動リセットしない - 情報を保持
             }
         }
 
@@ -349,9 +348,7 @@
                             // スプレッドシートURLが見つからない場合
                             setTimeout(() => {
                                 showErrorMessage('NFCタグにGoogleスプレッドシートのURLが含まれていません。');
-                                setTimeout(() => {
-                                    resetToInitialState();
-                                }, 5000);
+                                // エラー時は自動リセットしない - 情報を保持
                             }, 2000);
                         }
                     };
@@ -365,9 +362,7 @@
                         }
                         showErrorMessage(errorMessageText);
                         
-                        setTimeout(() => {
-                            resetToInitialState();
-                        }, 5000);
+                        // エラー時は自動リセットしない - 情報を保持
                     };
 
                     ndefReaderInstance.scan().catch(error => {
