@@ -263,6 +263,11 @@
             addDebugInfo('=== NFC URL送信開始 ===');
             addDebugInfo(`NFC URL: ${nfcUrl}`);
             
+            // 手動テストで使用したURLと比較
+            const correctGasUrl = 'https://script.google.com/macros/s/AKfycbywswLc2pqHUM4Ywc3ZD7JXzDvlgzwgJOzJE-rM3zZSrOeslstFYpW9LTUc91vn0bVy/exec';
+            addDebugInfo(`正しいGAS URL: ${correctGasUrl}`);
+            addDebugInfo(`URL一致: ${nfcUrl === correctGasUrl ? 'YES' : 'NO'}`);
+            
             if (!canSend()) {
                 addDebugInfo('重複送信防止のため送信をスキップ');
                 return;
@@ -283,7 +288,19 @@
             addDebugInfo(`送信URL: ${fullUrl}`);
             addDebugInfo(`ユーザー名: ${userName}`);
             
-            updateStatus(`📡 ${userName}さんのチェックイン送信中...`, 'waiting');
+            // 警告表示：URLが異なる場合
+            if (nfcUrl !== correctGasUrl) {
+                updateStatus('⚠️ NFCタグのURLが手動テストと異なります', 'error');
+                addDebugInfo('⚠️ 警告: NFCタグのGAS URLが手動テストで使用したものと異なります');
+                addDebugInfo('NFCタグの書き込み内容を確認してください');
+                
+                // それでも送信は試行
+                setTimeout(() => {
+                    updateStatus(`📡 ${userName}さんのチェックイン送信中...（異なるURL）`, 'waiting');
+                }, 2000);
+            } else {
+                updateStatus(`📡 ${userName}さんのチェックイン送信中...`, 'waiting');
+            }
             
             try {
                 const img = new Image();
@@ -308,7 +325,13 @@
                 
                 const result = await imagePromise;
                 addDebugInfo(`NFC送信完了: ${result}`);
-                updateStatus(`😊 ${userName}さん、チェックイン完了！`, 'success');
+                
+                if (nfcUrl !== correctGasUrl) {
+                    updateStatus(`⚠️ 送信完了（異なるGAS URL使用）`, 'error');
+                    addDebugInfo('NFCタグに正しいGAS URLを書き込み直すことをお勧めします');
+                } else {
+                    updateStatus(`😊 ${userName}さん、チェックイン完了！`, 'success');
+                }
                 
                 // 5秒後にステータスをリセット
                 setTimeout(() => {
