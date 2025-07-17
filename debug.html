@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>デバッグ版 スマコネ</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.waiting {
+            background-color: #e3f2fd;
+            color: #1976d2;
+            border: 2px solid #bbdefb;
+        }
+        .status.success {
+            background-color: #e8f5e8;
+            color: #2e7d32;
+            border: 2px solid #a5d6a7;
+        }
+        .status.error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 2px solid #ef9a9a;
+        }
+        .debug-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover {
+            background-color: #1565c0;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: #4a90e2;
+        }
+        .section {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+        }
+        .section:last-child {
+            border-bottom: none;
+        }
+        h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 デバッグ版 スマコネ</h1>
+        
+        <div class="section">
+            <h3>📋 設定</h3>
+            <input type="text" id="gasUrl" placeholder="Google Apps Script のURLを入力" />
+            <input type="text" id="testUserName" value="田中太郎" placeholder="テスト用ユーザー名" />
+        </div>
+        
+        <div class="section">
+            <h3>🧪 テスト送信</h3>
+            <button onclick="testImageMethod()">🖼️ Image タグ方式でテスト</button>
+            <button onclick="testFetchCors()">🌐 Fetch (CORS) 方式でテスト</button>
+            <button onclick="testFetchNoCors()">🚫 Fetch (no-cors) 方式でテスト</button>
+            <button onclick="testDirectURL()">🔗 直接URL開く</button>
+        </div>
+        
+        <div class="section">
+            <h3>📊 ステータス</h3>
+            <div id="status" class="status waiting">テスト準備完了</div>
+        </div>
+        
+        <div class="section">
+            <h3>🔍 デバッグ情報</h3>
+            <div class="debug-info" id="debugInfo">ここにデバッグ情報が表示されます</div>
+        </div>
+    </div>
+
+    <script>
+        function updateStatus(message, type = 'waiting') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        function addDebugInfo(info) {
+            const debugElement = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleString('ja-JP');
+            debugElement.textContent += `[${timestamp}] ${info}\n`;
+        }
+
+        function buildTestURL() {
+            const gasUrl = document.getElementById('gasUrl').value.trim();
+            const userName = document.getElementById('testUserName').value.trim();
+            
+            if (!gasUrl) {
+                alert('Google Apps Script のURLを入力してください');
+                return null;
+            }
+            
+            const timestamp = new Date().toLocaleString('ja-JP');
+            const params = new URLSearchParams({
+                timestamp: timestamp,
+                action: 'checkin',
+                userName: userName,
+                inputMethod: 'manual',
+                device: 'Debug Test'
+            });
+            
+            const fullUrl = `${gasUrl}?${params.toString()}`;
+            addDebugInfo(`構築したURL: ${fullUrl}`);
+            return fullUrl;
+        }
+
+        // 1. Image タグ方式（確実に送信される）
+        async function testImageMethod() {
+            const url = buildTestURL();
+            if (!url) return;
+            
+            updateStatus('🖼️ Image タグ方式でテスト送信中...', 'waiting');
+            addDebugInfo('Image タグ方式開始');
+            
+            try {
+                const img = new Image();
+                
+                img.onload = function() {
+                    addDebugInfo('Image: onload イベント発生（珍しい）');
+                    updateStatus('✅ Image タグ送信完了（onload）', 'success');
+                };
+                
+                img.onerror = function() {
+                    addDebugInfo('Image: onerror イベント発生（正常）');
+                    updateStatus('✅ Image タグ送信完了（onerror - 正常）', 'success');
+                };
+                
+                // 5秒後にタイムアウト
+                setTimeout(() => {
+                    addDebugInfo('Image: 5秒経過、送信完了と判断');
+                    updateStatus('✅ Image タグ送信完了（タイムアウト）', 'success');
+                }, 5000);
+                
+                img.src = url;
+                addDebugInfo('Image: src設定完了、送信実行');
+                
+            } catch (error) {
+                addDebugInfo(`Image エラー: ${error.message}`);
+                updateStatus('❌ Image タグ送信エラー', 'error');
+            }
+        }
+
+        // 2. Fetch CORS方式
+        async function testFetchCors() {
+            const url = buildTestURL();
+            if (!url) return;
+            
+            updateStatus('🌐 Fetch (CORS) 方式でテスト送信中...', 'waiting');
+            addDebugInfo('Fetch CORS 方式開始');
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                addDebugInfo(`CORS レスポンス: status=${response.status}, ok=${response.ok}`);
+                
+                if (response.ok) {
+                    const text = await response.text();
+                    addDebugInfo(`CORS レスポンス内容: ${text.substring(0, 200)}...`);
+                    updateStatus('✅ Fetch (CORS) 送信成功', 'success');
+                } else {
+                    addDebugInfo(`CORS エラー: ${response.status} ${response.statusText}`);
+                    updateStatus('❌ Fetch (CORS) 送信失敗', 'error');
+                }
+                
+            } catch (error) {
+                addDebugInfo(`Fetch CORS エラー: ${error.message}`);
+                updateStatus('❌ Fetch (CORS) 送信エラー', 'error');
+            }
+        }
+
+        // 3. Fetch no-cors方式（元の方式）
+        async function testFetchNoCors() {
+            const url = buildTestURL();
+            if (!url) return;
+            
+            updateStatus('🚫 Fetch (no-cors) 方式でテスト送信中...', 'waiting');
+            addDebugInfo('Fetch no-cors 方式開始');
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'no-cors'
+                });
+                
+                addDebugInfo(`no-cors レスポンス: type=${response.type}, status=${response.status}`);
+                addDebugInfo('no-cors では詳細なレスポンスは読み取れません');
+                updateStatus('✅ Fetch (no-cors) 送信完了', 'success');
+                
+            } catch (error) {
+                addDebugInfo(`Fetch no-cors エラー: ${error.message}`);
+                updateStatus('❌ Fetch (no-cors) 送信エラー', 'error');
+            }
+        }
+
+        // 4. 直接URL開く（確実にGASが実行される）
+        function testDirectURL() {
+            const url = buildTestURL();
+            if (!url) return;
+            
+            updateStatus('🔗 直接URL開くテスト実行', 'waiting');
+            addDebugInfo('直接URL開く方式');
+            addDebugInfo(`URL: ${url}`);
+            
+            // 新しいタブで開く
+            window.open(url, '_blank');
+            
+            updateStatus('✅ 新しいタブでURL開きました - GASの結果を確認してください', 'success');
+            addDebugInfo('新しいタブで開きました。スプレッドシートのF列を確認してください。');
+        }
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            addDebugInfo('デバッグ版アプリ初期化完了');
+            addDebugInfo('各ボタンでテストを実行し、スプレッドシートのF列を確認してください。');
+        });
+    </script>
+</body>
+</html>
