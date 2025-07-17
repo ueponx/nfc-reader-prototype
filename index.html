@@ -473,7 +473,7 @@
             debugInfo.style.display = 'block';
         }
 
-        // チェックインデータを送信（1回のみ）
+        // チェックインデータを送信（画面遷移を防止）
         async function sendCheckinData(url) {
             const timestamp = new Date().toLocaleString('ja-JP', {
                 year: 'numeric',
@@ -515,26 +515,45 @@
                     device: 'Android NFC'
                 };
 
-                // URLパラメータを構築
-                const params = new URLSearchParams({
-                    timestamp: timestamp,
-                    action: 'checkin',
-                    userName: effectiveUserName,
-                    inputMethod: inputMethod,
-                    device: 'AndroidNFC'
-                });
+                // URLパラメータを手動で構築（encodeURIComponentを使用）
+                const paramString = [
+                    `timestamp=${encodeURIComponent(timestamp)}`,
+                    `action=${encodeURIComponent('checkin')}`,
+                    `userName=${encodeURIComponent(effectiveUserName)}`,
+                    `inputMethod=${encodeURIComponent(inputMethod)}`,
+                    `device=${encodeURIComponent('Android NFC')}`
+                ].join('&');
                 
-                const getUrl = `${url}?${params.toString()}`;
+                const getUrl = `${url}?${paramString}`;
+                
                 console.log('送信URL:', getUrl);
                 console.log('送信データ:', sendData);
                 
-                // 1回だけGET送信（no-corsモード）
-                const response = await fetch(getUrl, {
-                    method: 'GET',
-                    mode: 'no-cors'
-                });
+                // 画像タグを使用してGETリクエストを送信（画面遷移を防止）
+                const img = new Image();
+                img.onload = function() {
+                    console.log('画像送信成功（予期されるエラー）');
+                };
+                img.onerror = function() {
+                    console.log('画像送信完了（予期される動作）');
+                };
                 
-                console.log('送信応答:', response);
+                // 画像タグで送信（これは画面遷移しない）
+                img.src = getUrl;
+                
+                // 追加でno-corsでも送信（保険）
+                try {
+                    fetch(getUrl, {
+                        method: 'GET',
+                        mode: 'no-cors'
+                    }).then(() => {
+                        console.log('no-cors送信完了');
+                    }).catch((error) => {
+                        console.log('no-cors送信エラー（通常の動作）:', error.message);
+                    });
+                } catch (fetchError) {
+                    console.log('fetch エラー:', fetchError);
+                }
                 
                 // 成功メッセージ
                 let successMessage = `✅ チェックイン完了！時刻: ${timestamp}`;
@@ -546,8 +565,8 @@
                 return { 
                     sendData, 
                     responseData: { 
-                        method: 'GET',
-                        status: 'no-cors mode - response opaque',
+                        method: 'Image + no-cors GET',
+                        status: 'sent without page navigation',
                         action: 'checkin',
                         timestamp: timestamp,
                         userName: effectiveUserName
@@ -581,7 +600,7 @@
             }
         }
 
-        // テスト送信機能を追加
+        // テスト送信機能を追加（画面遷移を防止）
         async function testDirectSend() {
             console.log('=== テスト送信開始 ===');
             
@@ -595,70 +614,49 @@
             updateStatus('📤 テスト送信中...', 'waiting');
             
             const timestamp = new Date().toLocaleString('ja-JP');
-            const testParams = new URLSearchParams({
-                timestamp: timestamp,
-                action: 'checkin',
-                device: 'TestDevice',
-                userName: 'テストユーザー',
-                inputMethod: 'manual'
-            });
+            const testUserName = manualUserName || currentUserName || 'テストユーザー';
+            const testInputMethod = currentUserName ? 'file' : 'manual';
             
-            const testSendUrl = `${testUrl}?${testParams.toString()}`;
+            // URLパラメータを手動で構築
+            const paramString = [
+                `timestamp=${encodeURIComponent(timestamp)}`,
+                `action=${encodeURIComponent('checkin')}`,
+                `userName=${encodeURIComponent(testUserName)}`,
+                `inputMethod=${encodeURIComponent(testInputMethod)}`,
+                `device=${encodeURIComponent('Android NFC')}`
+            ].join('&');
+            
+            const testSendUrl = `${testUrl}?${paramString}`;
             console.log('テスト送信URL:', testSendUrl);
             
-            // 複数の方法で送信
+            // 画面遷移しない方法で送信
             const results = [];
             
-            // 1. no-cors
+            // 1. 画像タグで送信
             try {
-                const response1 = await fetch(testSendUrl, { method: 'GET', mode: 'no-cors' });
-                results.push(`no-cors: ${response1.type}`);
-                console.log('no-cors結果:', response1);
+                const img = new Image();
+                img.onload = () => results.push('Image: 送信成功');
+                img.onerror = () => results.push('Image: 送信完了（予期される）');
+                img.src = testSendUrl;
+                results.push('Image: 送信実行');
+            } catch (e) {
+                results.push(`Image: エラー - ${e.message}`);
+            }
+            
+            // 2. no-cors fetch
+            try {
+                await fetch(testSendUrl, { method: 'GET', mode: 'no-cors' });
+                results.push('no-cors: 送信完了');
             } catch (e) {
                 results.push(`no-cors: エラー - ${e.message}`);
             }
             
-            // 2. cors
-            try {
-                const response2 = await fetch(testSendUrl, { method: 'GET', mode: 'cors' });
-                results.push(`cors: ${response2.status}`);
-                console.log('cors結果:', response2);
-            } catch (e) {
-                results.push(`cors: エラー - ${e.message}`);
-            }
-            
-            // 3. iframe
-            try {
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = testSendUrl;
-                document.body.appendChild(iframe);
-                results.push('iframe: 送信完了');
-                
-                setTimeout(() => {
-                    document.body.removeChild(iframe);
-                }, 2000);
-            } catch (e) {
-                results.push(`iframe: エラー - ${e.message}`);
-            }
-            
-            // 4. 画像タグ（GETリクエストとして）
-            try {
-                const img = new Image();
-                img.onload = () => console.log('Image load success');
-                img.onerror = () => console.log('Image load error (expected)');
-                img.src = testSendUrl;
-                results.push('image: 送信完了');
-            } catch (e) {
-                results.push(`image: エラー - ${e.message}`);
-            }
-            
             console.log('テスト結果:', results);
-            updateStatus(`📊 テスト送信完了: ${results.length}通りの方法で送信`, 'success');
+            updateStatus(`📊 テスト送信完了`, 'success');
             
             // 結果をアラートで表示
             setTimeout(() => {
-                alert(`テスト送信結果:\n${results.join('\n')}\n\nGoogle Apps Scriptのログを確認してください。`);
+                alert(`テスト送信結果:\n${results.join('\n')}\n\nGoogle Apps Scriptの「実行記録」を確認してください。\n\n送信データ:\n- ユーザー: ${testUserName}\n- 入力方法: ${testInputMethod}\n- 時刻: ${timestamp}`);
             }, 1000);
         }
 
