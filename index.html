@@ -472,7 +472,7 @@
             debugInfo.style.display = 'block';
         }
 
-        // チェックインデータを送信（重複防止版）
+        // チェックインデータを送信（デバッグ強化版）
         async function sendCheckinData(url) {
             const timestamp = new Date().toLocaleString('ja-JP', {
                 year: 'numeric',
@@ -487,23 +487,28 @@
             let effectiveUserName = 'Unknown';
             let inputMethod = 'manual';
             
+            console.log('=== ユーザー名決定プロセス ===');
+            console.log('currentUserName:', currentUserName);
+            console.log('manualUserName:', manualUserName);
+            
             if (currentUserName && currentUserName.trim().length > 0) {
                 // ファイルから読み込んだ場合
                 effectiveUserName = currentUserName.trim();
                 inputMethod = 'file';
+                console.log('ファイルから読み込み:', effectiveUserName);
             } else if (manualUserName && manualUserName.trim().length > 0) {
                 // 手動入力の場合
                 effectiveUserName = manualUserName.trim();
                 inputMethod = 'manual';
+                console.log('手動入力から取得:', effectiveUserName);
+            } else {
+                console.log('ユーザー名なし、Unknownを使用');
             }
 
-            console.log('送信準備:', {
-                timestamp: timestamp,
-                effectiveUserName: effectiveUserName,
-                inputMethod: inputMethod,
-                currentUserName: currentUserName,
-                manualUserName: manualUserName
-            });
+            console.log('=== 最終決定値 ===');
+            console.log('effectiveUserName:', effectiveUserName);
+            console.log('inputMethod:', inputMethod);
+            console.log('timestamp:', timestamp);
 
             try {
                 let statusMessage = 'チェックイン処理中...';
@@ -521,19 +526,42 @@
                     device: 'Android NFC'
                 };
 
-                // URLパラメータを手動で構築
-                const paramString = [
-                    `timestamp=${encodeURIComponent(timestamp)}`,
-                    `action=${encodeURIComponent('checkin')}`,
-                    `userName=${encodeURIComponent(effectiveUserName)}`,
-                    `inputMethod=${encodeURIComponent(inputMethod)}`,
-                    `device=${encodeURIComponent('Android NFC')}`
-                ].join('&');
+                console.log('=== 送信データ構築 ===');
+                console.log('sendData:', sendData);
+
+                // URLパラメータを個別に構築（より確実に）
+                const params = {
+                    timestamp: timestamp,
+                    action: 'checkin',
+                    userName: effectiveUserName,
+                    inputMethod: inputMethod,
+                    device: 'Android NFC'
+                };
                 
+                console.log('=== パラメータオブジェクト ===');
+                console.log('params:', params);
+                
+                // 各パラメータを個別にエンコード
+                const paramPairs = [];
+                for (const [key, value] of Object.entries(params)) {
+                    const encodedKey = encodeURIComponent(key);
+                    const encodedValue = encodeURIComponent(value);
+                    paramPairs.push(`${encodedKey}=${encodedValue}`);
+                    console.log(`パラメータ: ${key} = "${value}" → ${encodedKey}=${encodedValue}`);
+                }
+                
+                const paramString = paramPairs.join('&');
                 const getUrl = `${url}?${paramString}`;
                 
-                console.log('送信URL:', getUrl);
-                console.log('送信データ:', sendData);
+                console.log('=== 構築されたURL ===');
+                console.log('paramString:', paramString);
+                console.log('getUrl:', getUrl);
+                
+                // 送信前の最終確認
+                console.log('=== 送信前最終確認 ===');
+                console.log('送信するuserName:', effectiveUserName);
+                console.log('userNameの長さ:', effectiveUserName.length);
+                console.log('userNameの型:', typeof effectiveUserName);
                 
                 // 1つの方法のみで送信（重複を防止）
                 await fetch(getUrl, {
