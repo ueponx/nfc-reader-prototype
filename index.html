@@ -472,8 +472,10 @@
             debugInfo.style.display = 'block';
         }
 
-        // チェックインデータを送信（デバッグ強化版）
+        // チェックインデータを送信（ユーザー名デバッグ強化版）
         async function sendCheckinData(url) {
+            console.log('=== sendCheckinData開始 ===');
+            
             const timestamp = new Date().toLocaleString('ja-JP', {
                 year: 'numeric',
                 month: '2-digit',
@@ -483,26 +485,44 @@
                 second: '2-digit'
             });
 
+            // 現在の状態を詳細にログ出力
+            console.log('=== 現在のユーザー名変数の状態 ===');
+            console.log('currentUserName:', currentUserName, '(型:', typeof currentUserName, ')');
+            console.log('manualUserName:', manualUserName, '(型:', typeof manualUserName, ')');
+            
+            // 手動入力フィールドの値を直接取得
+            const manualInputElement = document.getElementById('manualNameInput');
+            const manualInputValue = manualInputElement ? manualInputElement.value : null;
+            console.log('手動入力要素の値:', manualInputValue, '(型:', typeof manualInputValue, ')');
+
             // 有効なユーザー名を決定（ファイル優先、次に手動入力、最後にUnknown）
             let effectiveUserName = 'Unknown';
             let inputMethod = 'manual';
             
-            console.log('=== ユーザー名決定プロセス ===');
-            console.log('currentUserName:', currentUserName);
-            console.log('manualUserName:', manualUserName);
+            console.log('=== ユーザー名決定プロセス開始 ===');
             
             if (currentUserName && currentUserName.trim().length > 0) {
                 // ファイルから読み込んだ場合
                 effectiveUserName = currentUserName.trim();
                 inputMethod = 'file';
-                console.log('ファイルから読み込み:', effectiveUserName);
+                console.log('✅ ファイルから取得:', effectiveUserName);
             } else if (manualUserName && manualUserName.trim().length > 0) {
-                // 手動入力の場合
+                // 手動入力の場合（変数から）
                 effectiveUserName = manualUserName.trim();
                 inputMethod = 'manual';
-                console.log('手動入力から取得:', effectiveUserName);
+                console.log('✅ 変数から手動入力取得:', effectiveUserName);
+            } else if (manualInputValue && manualInputValue.trim().length > 0) {
+                // 手動入力の場合（直接取得）
+                effectiveUserName = manualInputValue.trim();
+                inputMethod = 'manual';
+                console.log('✅ 要素から直接手動入力取得:', effectiveUserName);
+                // 変数も更新
+                manualUserName = effectiveUserName;
             } else {
-                console.log('ユーザー名なし、Unknownを使用');
+                console.log('❌ ユーザー名が見つからない、Unknownを使用');
+                console.log('  - currentUserName: empty or null');
+                console.log('  - manualUserName: empty or null');
+                console.log('  - manualInputValue: empty or null');
             }
 
             console.log('=== 最終決定値 ===');
@@ -526,10 +546,10 @@
                     device: 'Android NFC'
                 };
 
-                console.log('=== 送信データ構築 ===');
-                console.log('sendData:', sendData);
+                console.log('=== 最終送信データ ===');
+                console.log('sendData:', JSON.stringify(sendData, null, 2));
 
-                // URLパラメータを個別に構築（より確実に）
+                // URLパラメータを個別に構築
                 const params = {
                     timestamp: timestamp,
                     action: 'checkin',
@@ -538,8 +558,7 @@
                     device: 'Android NFC'
                 };
                 
-                console.log('=== パラメータオブジェクト ===');
-                console.log('params:', params);
+                console.log('=== URLパラメータ構築 ===');
                 
                 // 各パラメータを個別にエンコード
                 const paramPairs = [];
@@ -547,23 +566,26 @@
                     const encodedKey = encodeURIComponent(key);
                     const encodedValue = encodeURIComponent(value);
                     paramPairs.push(`${encodedKey}=${encodedValue}`);
-                    console.log(`パラメータ: ${key} = "${value}" → ${encodedKey}=${encodedValue}`);
+                    console.log(`${key}: "${value}" → ${encodedKey}=${encodedValue}`);
                 }
                 
                 const paramString = paramPairs.join('&');
                 const getUrl = `${url}?${paramString}`;
                 
-                console.log('=== 構築されたURL ===');
-                console.log('paramString:', paramString);
+                console.log('=== 最終URL ===');
                 console.log('getUrl:', getUrl);
                 
-                // 送信前の最終確認
+                // 送信前の最終確認（重要）
                 console.log('=== 送信前最終確認 ===');
-                console.log('送信するuserName:', effectiveUserName);
-                console.log('userNameの長さ:', effectiveUserName.length);
-                console.log('userNameの型:', typeof effectiveUserName);
+                console.log('送信するuserName:', `"${effectiveUserName}"`);
+                console.log('userNameがUnknownか？', effectiveUserName === 'Unknown');
                 
-                // 1つの方法のみで送信（重複を防止）
+                if (effectiveUserName === 'Unknown') {
+                    console.log('⚠️ 警告: userNameがUnknownのまま送信されます');
+                    console.log('⚠️ 手動入力フィールドを確認してください');
+                }
+                
+                // 送信
                 await fetch(getUrl, {
                     method: 'GET',
                     mode: 'no-cors'
