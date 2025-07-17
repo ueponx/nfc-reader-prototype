@@ -285,8 +285,27 @@
             });
             
             const fullUrl = `${nfcUrl}?${params.toString()}`;
-            addDebugInfo(`送信URL: ${fullUrl}`);
-            addDebugInfo(`ユーザー名: ${userName}`);
+            
+            // 🔍 詳細なURL情報をログ出力
+            addDebugInfo(`=== 送信URL詳細分析 ===`);
+            addDebugInfo(`ベースURL: ${nfcUrl}`);
+            addDebugInfo(`パラメータ: ${params.toString()}`);
+            addDebugInfo(`完全URL: ${fullUrl}`);
+            addDebugInfo(`URL長さ: ${fullUrl.length}`);
+            addDebugInfo(`ユーザー名パラメータ: ${params.get('userName')}`);
+            
+            // パラメータを1つずつ確認
+            addDebugInfo(`=== パラメータ個別確認 ===`);
+            for (const [key, value] of params) {
+                addDebugInfo(`${key}: "${value}" (長さ:${value.length})`);
+            }
+            
+            // 手動テストのURLと比較
+            const manualTestUrl = buildTestURL();
+            addDebugInfo(`=== 手動テストとの比較 ===`);
+            addDebugInfo(`手動テストURL: ${manualTestUrl}`);
+            addDebugInfo(`NFC送信URL: ${fullUrl}`);
+            addDebugInfo(`URL完全一致: ${fullUrl === manualTestUrl ? 'YES' : 'NO'}`);
             
             // 警告表示：URLが異なる場合
             if (nfcUrl !== correctGasUrl) {
@@ -320,11 +339,14 @@
                     }, 5000);
                 });
                 
+                // 🔍 送信直前にURLをもう一度確認
+                addDebugInfo(`🚀 送信実行: ${fullUrl}`);
                 img.src = fullUrl;
                 lastSendTime = Date.now(); // 送信時刻を記録
                 
                 const result = await imagePromise;
                 addDebugInfo(`NFC送信完了: ${result}`);
+                addDebugInfo(`送信先URL確認: ${img.src}`);
                 
                 if (nfcUrl !== correctGasUrl) {
                     updateStatus(`⚠️ 送信完了（異なるGAS URL使用）`, 'error');
@@ -443,7 +465,14 @@
                             url = cleanUrl;
                         }
                         
-                        await sendToNFCUrl(url);
+                        // 🧪 テスト：NFCから読み取ったURLを強制的に正しいURLに置き換え
+                        addDebugInfo('🧪 テスト: NFCのURLを手動テストのURLに強制置換');
+                        const originalNfcUrl = url;
+                        const forcedUrl = correctGasUrl; // 手動テストと同じURLを強制使用
+                        addDebugInfo(`元のNFC URL: ${originalNfcUrl}`);
+                        addDebugInfo(`強制使用URL: ${forcedUrl}`);
+                        
+                        await sendToNFCUrl(forcedUrl); // 強制的に正しいURLを使用
                     } else {
                         addDebugInfo('❌ URLが見つかりません');
                         updateStatus('❌ NFCタグにURLが見つかりません', 'error');
