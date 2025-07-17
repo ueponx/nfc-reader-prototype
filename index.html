@@ -315,12 +315,12 @@
             
             if (currentUserName) {
                 // ファイルからユーザー名を読み込んだ場合
-                fileStatus.textContent = `ファイル: ${userFileInfo ? userFileInfo.name : '不明'} (ユーザー: ${currentUserName})`;
+                fileStatus.textContent = `✅ ファイル読み込み完了: ${userFileInfo ? userFileInfo.name : '不明'} (${currentUserName})`;
                 fileStatus.style.color = '#2e7d32';
                 fileStatus.style.fontWeight = 'bold';
             } else if (manualUserName && manualUserName.length > 0) {
-                // 手動入力の場合
-                fileStatus.textContent = `手動入力: ${manualUserName}`;
+                // 手動入力のみの場合
+                fileStatus.textContent = `✅ 手動入力: ${manualUserName}`;
                 fileStatus.style.color = '#1976d2';
                 fileStatus.style.fontWeight = 'bold';
             } else {
@@ -403,6 +403,15 @@
                     if (userName && userName.length > 0) {
                         currentUserName = userName;
                         console.log('ユーザー名設定:', currentUserName);
+                        
+                        // 手動入力フィールドにも同じ名前を設定
+                        const manualInputElement = document.getElementById('manualNameInput');
+                        if (manualInputElement) {
+                            manualInputElement.value = userName;
+                            manualUserName = userName; // manualUserName も同期
+                            console.log('手動入力フィールドに名前を設定:', userName);
+                        }
+                        
                         updateUserInfo();
                         updateStatus(`✅ ユーザー名を読み込みました: ${currentUserName}`, 'success');
                         
