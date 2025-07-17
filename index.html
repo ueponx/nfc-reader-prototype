@@ -216,7 +216,6 @@
             <div class="timestamp" id="currentTime"></div>
             
             <button id="startButton" onclick="startNFC()">NFC読み込み開始</button>
-            <button onclick="testDirectSend()" style="background-color: #ff9800; margin-top: 5px;">🧪 テスト送信</button>
         </div>
         
         <!-- デバッグ情報 -->
@@ -473,7 +472,7 @@
             debugInfo.style.display = 'block';
         }
 
-        // チェックインデータを送信（画面遷移を防止）
+        // チェックインデータを送信（重複防止版）
         async function sendCheckinData(url) {
             const timestamp = new Date().toLocaleString('ja-JP', {
                 year: 'numeric',
@@ -484,19 +483,26 @@
                 second: '2-digit'
             });
 
-            // 有効なユーザー名を決定（ファイル優先、次に手動入力）
-            const effectiveUserName = currentUserName || (manualUserName && manualUserName.length > 0 ? manualUserName : 'Unknown');
-
-            // 入力方法を決定
+            // 有効なユーザー名を決定（ファイル優先、次に手動入力、最後にUnknown）
+            let effectiveUserName = 'Unknown';
             let inputMethod = 'manual';
-            if (currentUserName) {
+            
+            if (currentUserName && currentUserName.trim().length > 0) {
+                // ファイルから読み込んだ場合
+                effectiveUserName = currentUserName.trim();
                 inputMethod = 'file';
+            } else if (manualUserName && manualUserName.trim().length > 0) {
+                // 手動入力の場合
+                effectiveUserName = manualUserName.trim();
+                inputMethod = 'manual';
             }
 
             console.log('送信準備:', {
                 timestamp: timestamp,
                 effectiveUserName: effectiveUserName,
-                inputMethod: inputMethod
+                inputMethod: inputMethod,
+                currentUserName: currentUserName,
+                manualUserName: manualUserName
             });
 
             try {
@@ -515,7 +521,7 @@
                     device: 'Android NFC'
                 };
 
-                // URLパラメータを手動で構築（encodeURIComponentを使用）
+                // URLパラメータを手動で構築
                 const paramString = [
                     `timestamp=${encodeURIComponent(timestamp)}`,
                     `action=${encodeURIComponent('checkin')}`,
@@ -529,31 +535,13 @@
                 console.log('送信URL:', getUrl);
                 console.log('送信データ:', sendData);
                 
-                // 画像タグを使用してGETリクエストを送信（画面遷移を防止）
-                const img = new Image();
-                img.onload = function() {
-                    console.log('画像送信成功（予期されるエラー）');
-                };
-                img.onerror = function() {
-                    console.log('画像送信完了（予期される動作）');
-                };
+                // 1つの方法のみで送信（重複を防止）
+                await fetch(getUrl, {
+                    method: 'GET',
+                    mode: 'no-cors'
+                });
                 
-                // 画像タグで送信（これは画面遷移しない）
-                img.src = getUrl;
-                
-                // 追加でno-corsでも送信（保険）
-                try {
-                    fetch(getUrl, {
-                        method: 'GET',
-                        mode: 'no-cors'
-                    }).then(() => {
-                        console.log('no-cors送信完了');
-                    }).catch((error) => {
-                        console.log('no-cors送信エラー（通常の動作）:', error.message);
-                    });
-                } catch (fetchError) {
-                    console.log('fetch エラー:', fetchError);
-                }
+                console.log('送信完了');
                 
                 // 成功メッセージ
                 let successMessage = `✅ チェックイン完了！時刻: ${timestamp}`;
@@ -565,8 +553,8 @@
                 return { 
                     sendData, 
                     responseData: { 
-                        method: 'Image + no-cors GET',
-                        status: 'sent without page navigation',
+                        method: 'no-cors GET',
+                        status: 'sent once only',
                         action: 'checkin',
                         timestamp: timestamp,
                         userName: effectiveUserName
@@ -660,7 +648,7 @@
             }, 1000);
         }
 
-        // NFC読み込み開始
+        // NFC読み込み開始（重複防止強化版）
         async function startNFC() {
             if (!('NDEFReader' in window)) {
                 updateStatus('❌ このブラウザはNFCに対応していません', 'error');
@@ -680,8 +668,21 @@
                 updateStatus('🔍 NFCタグを探しています...', 'waiting');
                 document.getElementById('startButton').disabled = true;
 
+                // 重複送信を防ぐためのタイムスタンプ管理
+                let lastProcessedTime = 0;
+                const MINIMUM_INTERVAL = 3000; // 3秒間は同じタグの処理を無視
+
                 ndef.addEventListener('reading', async ({ message, serialNumber }) => {
-                    console.log('NFC読み込み完了:', message);
+                    const currentTime = Date.now();
+                    
+                    // 重複処理を防止
+                    if (currentTime - lastProcessedTime < MINIMUM_INTERVAL) {
+                        console.log('重複読み込みを検出。処理をスキップします。');
+                        return;
+                    }
+                    lastProcessedTime = currentTime;
+
+                    console.log('NFC読み込み完了:', message, 'シリアル:', serialNumber);
                     
                     let url = null;
                     const nfcData = {
@@ -737,7 +738,7 @@
                     if (url) {
                         updateStatus('📡 NFCタグからURLを読み込みました', 'success');
                         
-                        // チェックインデータを送信
+                        // チェックインデータを送信（1回のみ）
                         const result = await sendCheckinData(url);
                         
                         // デバッグ情報を表示
@@ -752,7 +753,7 @@
                         isNFCActive = false;
                         document.getElementById('startButton').disabled = false;
                         updateStatus('📱 次のチェックインをお待ちしています', 'waiting');
-                    }, 3000); // 3秒後にリセット（チェックイン確認時間を長く）
+                    }, 4000); // 4秒後にリセット（重複防止時間より長く）
                 });
 
                 ndef.addEventListener('readingerror', (error) => {
