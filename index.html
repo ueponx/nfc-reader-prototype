@@ -370,6 +370,7 @@
                     addDebugInfo(`NFCタグ検出: ${serialNumber}`);
                     
                     let url = null;
+                    let rawUrlData = null; // 生データを保存
 
                     // NFCデータを解析
                     for (const record of message.records) {
@@ -378,10 +379,12 @@
                         if (record.recordType === 'url') {
                             const decoder = new TextDecoder();
                             url = decoder.decode(record.data);
+                            rawUrlData = new Uint8Array(record.data);
                             addDebugInfo(`URL取得: ${url}`);
                         } else if (record.recordType === 'text') {
                             const decoder = new TextDecoder();
                             const text = decoder.decode(record.data);
+                            rawUrlData = new Uint8Array(record.data);
                             addDebugInfo(`テキスト取得: ${text}`);
                             if (text.startsWith('http')) {
                                 url = text;
@@ -389,11 +392,13 @@
                         } else if (record.recordType === 'absolute-url') {
                             const decoder = new TextDecoder();
                             url = decoder.decode(record.data);
+                            rawUrlData = new Uint8Array(record.data);
                             addDebugInfo(`絶対URL取得: ${url}`);
                         } else {
                             try {
                                 const decoder = new TextDecoder();
                                 const decodedText = decoder.decode(record.data);
+                                rawUrlData = new Uint8Array(record.data);
                                 addDebugInfo(`その他データ: ${decodedText}`);
                                 if (decodedText.startsWith('http')) {
                                     url = decodedText;
@@ -406,6 +411,38 @@
 
                     if (url) {
                         addDebugInfo(`✅ URL検出成功: ${url}`);
+                        
+                        // 詳細なURL分析
+                        const correctGasUrl = 'https://script.google.com/macros/s/AKfycbywswLc2pqHUM4Ywc3ZD7JXzDvlgzwgJOzJE-rM3zZSrOeslstFYpW9LTUc91vn0bVy/exec';
+                        
+                        addDebugInfo('=== URL詳細分析 ===');
+                        addDebugInfo(`NFC URL: "${url}"`);
+                        addDebugInfo(`正解 URL: "${correctGasUrl}"`);
+                        addDebugInfo(`長さ比較: NFC=${url.length}, 正解=${correctGasUrl.length}`);
+                        addDebugInfo(`完全一致: ${url === correctGasUrl ? 'YES' : 'NO'}`);
+                        
+                        // 文字コード比較
+                        if (rawUrlData) {
+                            const hexData = Array.from(rawUrlData).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                            addDebugInfo(`生データ(16進): ${hexData.substring(0, 100)}...`);
+                        }
+                        
+                        // URLに既にパラメータが含まれているかチェック
+                        if (url.includes('?')) {
+                            addDebugInfo(`⚠️ URLに既にパラメータ含有: ${url.split('?')[1]}`);
+                        }
+                        
+                        // URLの末尾文字チェック
+                        const lastChar = url.charCodeAt(url.length - 1);
+                        addDebugInfo(`末尾文字コード: ${lastChar} (${String.fromCharCode(lastChar)})`);
+                        
+                        // URLをクリーンアップ
+                        const cleanUrl = url.trim();
+                        if (cleanUrl !== url) {
+                            addDebugInfo(`⚠️ URL前後に空白を検出、クリーンアップ: "${cleanUrl}"`);
+                            url = cleanUrl;
+                        }
+                        
                         await sendToNFCUrl(url);
                     } else {
                         addDebugInfo('❌ URLが見つかりません');
