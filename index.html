@@ -1,695 +1,326 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>スマコネ</title> <!-- タイトルを「スマコネ」に変更 -->
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 20px;
-        }
-        .status {
-            padding: 15px;
-            border-radius: 8px;
-            margin: 10px 0;
-            font-weight: bold;
-        }
-        .status.waiting {
-            background-color: #e3f2fd;
-            color: #1976d2;
-            border: 2px solid #bbdefb;
-        }
-        .status.success {
-            background-color: #e8f5e8;
-            color: #2e7d32;
-            border: 2px solid #a5d6a7;
-        }
-        .status.error {
-            background-color: #ffebee;
-            color: #c62828;
-            border: 2px solid #ef9a9a;
-        }
-        .user-info {
-            background-color: #f0f8ff;
-            border: 2px solid #4a90e2;
-            border-radius: 8px;
-            padding: 15px;
-            margin: 10px 0;
-            text-align: center;
-        }
-        .user-info.loaded {
-            background-color: #e8f5e8;
-            border-color: #2e7d32;
-        }
-        .user-name {
-            font-size: 18px;
-            font-weight: bold;
-            color: #2e7d32;
-        }
-        .file-input-wrapper {
-            margin: 15px 0;
-            text-align: center;
-        }
-        .file-input {
-            display: none;
-        }
-        .file-button {
-            background-color: #ff9800;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            margin: 5px;
-        }
-        .file-button:hover {
-            background-color: #f57c00;
-        }
-        .debug-info {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            padding: 12px;
-            margin: 10px 0;
-            font-family: monospace;
-            font-size: 12px;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-        .debug-section {
-            margin: 15px 0;
-        }
-        .debug-title {
-            font-weight: bold;
-            color: #495057;
-            margin-bottom: 5px;
-        }
-        button {
-            width: 100%;
-            padding: 15px;
-            background-color: #1976d2;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin: 10px 0;
-        }
-        button:hover {
-            background-color: #1565c0;
-        }
-        button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        .timestamp {
-            text-align: center;
-            color: #666;
-            margin: 10px 0;
-        }
-        .checkin-icon {
-            font-size: 48px;
-            text-align: center;
-            margin: 20px 0;
-        }
-        .section {
-            border-bottom: 1px solid #eee;
-            padding-bottom: 15px;
-            margin-bottom: 15px;
-        }
-        .section:last-child {
-            border-bottom: none;
-        }
-        /* 新しい入力フィールドのスタイル */
-        #userNameInput {
-            width: calc(100% - 22px); /* paddingとborderを考慮 */
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 16px;
-            box-sizing: border-box; /* paddingとborderをwidthに含める */
-        }
-        #userNameInput:read-only {
-            background-color: #e9ecef;
-            cursor: not-allowed;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>✅ スマコネ</h1> <!-- タイトルアイコンを「✅」に変更 -->
-        
-        <div class="checkin-icon">🏢</div>
-        
-        <!-- ユーザー情報セクション -->
-        <div class="section">
-            <h3>👤 ユーザー設定</h3>
-            <div id="userInfo" class="user-info">
-                <!-- 名前入力欄 -->
-                <label for="userNameInput" style="display: block; margin-bottom: 5px; color: #666; font-size: 14px;">名前を入力してください:</label>
-                <input type="text" id="userNameInput" placeholder="ユーザ名ファイルがない場合には名前を入力してください"> <!-- プレースホルダーを変更 -->
-                
-                <div id="userFileStatus" style="font-size: 12px; color: #666; margin-top: 5px;">
-                    ユーザー名ファイルは選択されていません。
-                </div>
-                
-                <div class="file-input-wrapper">
-                    <input type="file" id="userFileInput" class="file-input" accept=".txt,.json,.csv" />
-                    <button type="button" class="file-button" onclick="selectUserFile()">📁 ユーザー名ファイルを選択</button>
-                    <button type="button" class="file-button" onclick="clearUserInfo()" style="background-color: #666;">🗑️ クリア</button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- チェックインセクション -->
-        <div class="section">
-            <h3>📱 チェックイン</h3>
-            <div id="status" class="status waiting">
-                NFCタグをスマートフォンに近づけてチェックインしてください
-            </div>
-            
-            <div class="timestamp" id="currentTime"></div>
-            
-            <button id="startButton" onclick="startNFC()">NFC読み込み開始</button>
-        </div>
-        
-        <!-- デバッグ情報 -->
-        <div id="debugInfo" style="display: none;">
-            <h3>🔧 デバッグ情報</h3>
-            
-            <div class="debug-section">
-                <div class="debug-title">👤 ユーザー情報:</div>
-                <div class="debug-info" id="userDebugInfo"></div>
-            </div>
-            
-            <div class="debug-section">
-                <div class="debug-title">🏷️ NFCタグ情報:</div>
-                <div class="debug-info" id="nfcData"></div>
-            </div>
-            
-            <div class="debug-section">
-                <div class="debug-title">🌐 アクセスURL:</div>
-                <div class="debug-info" id="accessUrl"></div>
-            </div>
-            
-            <div class="debug-section">
-                <div class="debug-title">📤 送信データ:</div>
-                <div class="debug-info" id="sendData"></div>
-            </div>
-            
-            <div class="debug-section">
-                <div class="debug-title">📥 レスポンス:</div>
-                <div class="debug-info" id="responseData"></div>
-            </div>
-        </div>
-    </div>
+// スプレッドシートIDを設定してください（URLから取得）
+// https://docs.google.com/spreadsheets/d/【この部分がスプレッドシートID】/edit
+const SPREADSHEET_ID = "1cD1EuQImBECV20tioWw4coTSYFQSTg0j_zHfQ-QBFeU"; // ← NFCログDBのスプレッドシートID
 
-    <!-- Generation Timestamp -->
-    <div id="generationTimestamp" class="absolute bottom-4 right-4 text-xs text-gray-500"></div>
+function doGet(e) {
+  try {
+    console.log('GET リクエストを受信:', e.parameter);
+    
+    // パラメータから各種データを取得
+    const timestamp = e.parameter.timestamp || new Date().toLocaleString('ja-JP');
+    const device = e.parameter.device || 'Unknown';
+    const action = e.parameter.action || 'checkin';
+    const userName = e.parameter.userName || 'Unknown';
+    const userFile = e.parameter.userFile || '';
+    
+    console.log('チェックイン情報:', {
+      timestamp: timestamp,
+      userName: userName,
+      action: action,
+      device: device,
+      userFile: userFile
+    });
+    
+    // スプレッドシートを開く
+    let spreadsheet;
+    let sheet;
+    
+    if (SPREADSHEET_ID && SPREADSHEET_ID !== "") {
+      // IDを指定してスプレッドシートを開く
+      console.log('スプレッドシートIDで開く:', SPREADSHEET_ID);
+      spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+      sheet = spreadsheet.getActiveSheet();
+    } else {
+      // IDが設定されていない場合は、現在のスプレッドシートを使用
+      console.log('現在のスプレッドシートを使用');
+      spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+      sheet = spreadsheet.getActiveSheet();
+    }
+    
+    console.log('スプレッドシート名:', spreadsheet.getName());
+    console.log('シート名:', sheet.getName());
+    
+    // 現在の最終行を取得
+    const lastRow = sheet.getLastRow();
+    const nextRow = lastRow + 1;
+    
+    console.log('現在の最終行:', lastRow, '次の行:', nextRow);
+    
+    // 各列にデータを記録
+    // A列: 時刻
+    sheet.getRange(nextRow, 1).setValue(timestamp);
+    
+    // B列: ユーザー
+    sheet.getRange(nextRow, 2).setValue(userName);
+    
+    // C列: アクション
+    sheet.getRange(nextRow, 3).setValue(action);
+    
+    // D列: 備考（デバイス情報など）
+    let remarks = device;
+    if (userFile && userFile !== 'unknown' && userFile !== '') {
+      remarks += ` (ファイル: ${userFile})`;
+    }
+    sheet.getRange(nextRow, 4).setValue(remarks);
+    
+    // E列: パラメータ（デバッグ用）
+    const parameterInfo = JSON.stringify({
+      device: device,
+      action: action,
+      timestamp: timestamp,
+      ...(userFile && userFile !== 'unknown' && userFile !== '' && { userFile: userFile }),
+      ...(userName && userName !== 'Unknown' && { userName: userName })
+    });
+    sheet.getRange(nextRow, 5).setValue(parameterInfo);
+    
+    // 書き込み後の確認
+    const writtenData = {
+      timestamp: sheet.getRange(nextRow, 1).getValue(),
+      userName: sheet.getRange(nextRow, 2).getValue(),
+      action: sheet.getRange(nextRow, 3).getValue(),
+      remarks: sheet.getRange(nextRow, 4).getValue(),
+      parameters: sheet.getRange(nextRow, 5).getValue()
+    };
+    
+    console.log('チェックイン記録完了:', writtenData);
+    
+    // 成功レスポンス
+    const responseData = {
+      status: 'success',
+      message: `${userName}さんのチェックインを記録しました`,
+      action: action,
+      timestamp: timestamp,
+      userName: userName,
+      device: device,
+      row: nextRow,
+      lastRow: lastRow,
+      sheetName: sheet.getName(),
+      spreadsheetName: spreadsheet.getName(),
+      writtenData: writtenData,
+      method: 'GET'
+    };
+    
+    console.log('レスポンス:', responseData);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify(responseData))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('GET エラー:', error);
+    console.error('エラー詳細:', error.toString());
+    console.error('スタック:', error.stack);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        status: 'error',
+        message: 'チェックインエラー: ' + error.toString(),
+        action: 'checkin',
+        error: error.name,
+        stack: error.stack,
+        method: 'GET'
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
 
-    <script>
-        let isNFCActive = false;
-        let currentUserName = null; // ファイルから読み込まれたユーザー名を保持
-        let userFileInfo = null;
-        
-        // DOM要素の参照
-        const userNameInputElement = document.getElementById('userNameInput');
-        const userFileStatusElement = document.getElementById('userFileStatus');
+function doPost(e) {
+  try {
+    console.log('POST リクエストを受信:', e.parameter, e.postData);
+    
+    // 受信したデータを取得
+    let timestamp;
+    let device = 'Unknown';
+    let action = 'checkin';
+    let userName = 'Unknown';
+    let userFile = '';
+    
+    if (e.postData && e.postData.contents) {
+      try {
+        const data = JSON.parse(e.postData.contents);
+        timestamp = data.timestamp || new Date().toLocaleString('ja-JP');
+        device = data.device || 'Unknown';
+        action = data.action || 'checkin';
+        userName = data.userName || 'Unknown';
+        userFile = data.userFile || '';
+      } catch (jsonError) {
+        console.log('JSON解析エラー:', jsonError);
+        timestamp = e.postData.contents;
+      }
+    } else if (e.parameter.timestamp) {
+      timestamp = e.parameter.timestamp;
+      device = e.parameter.device || 'Unknown';
+      action = e.parameter.action || 'checkin';
+      userName = e.parameter.userName || 'Unknown';
+      userFile = e.parameter.userFile || '';
+    } else {
+      timestamp = new Date().toLocaleString('ja-JP');
+    }
+    
+    console.log('チェックイン情報:', {
+      timestamp: timestamp,
+      userName: userName,
+      action: action,
+      device: device,
+      userFile: userFile
+    });
+    
+    // スプレッドシートを開く
+    let spreadsheet;
+    let sheet;
+    
+    if (SPREADSHEET_ID && SPREADSHEET_ID !== "") {
+      console.log('スプレッドシートIDで開く:', SPREADSHEET_ID);
+      spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+      sheet = spreadsheet.getActiveSheet();
+    } else {
+      console.log('現在のスプレッドシートを使用');
+      spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+      sheet = spreadsheet.getActiveSheet();
+    }
+    
+    console.log('スプレッドシート名:', spreadsheet.getName());
+    console.log('シート名:', sheet.getName());
+    
+    // 現在の最終行を取得
+    const lastRow = sheet.getLastRow();
+    const nextRow = lastRow + 1;
+    
+    console.log('現在の最終行:', lastRow, '次の行:', nextRow);
+    
+    // 各列にデータを記録
+    // A列: 時刻
+    sheet.getRange(nextRow, 1).setValue(timestamp);
+    
+    // B列: ユーザー
+    sheet.getRange(nextRow, 2).setValue(userName);
+    
+    // C列: アクション
+    sheet.getRange(nextRow, 3).setValue(action);
+    
+    // D列: 備考（デバイス情報など）
+    let remarks = device;
+    if (userFile && userFile !== 'unknown' && userFile !== '') {
+      remarks += ` (ファイル: ${userFile})`;
+    }
+    sheet.getRange(nextRow, 4).setValue(remarks);
+    
+    // E列: パラメータ（デバッグ用）
+    const parameterInfo = JSON.stringify({
+      device: device,
+      action: action,
+      timestamp: timestamp,
+      ...(userFile && userFile !== 'unknown' && userFile !== '' && { userFile: userFile }),
+      ...(userName && userName !== 'Unknown' && { userName: userName })
+    });
+    sheet.getRange(nextRow, 5).setValue(parameterInfo);
+    
+    // 書き込み後の確認
+    const writtenData = {
+      timestamp: sheet.getRange(nextRow, 1).getValue(),
+      userName: sheet.getRange(nextRow, 2).getValue(),
+      action: sheet.getRange(nextRow, 3).getValue(),
+      remarks: sheet.getRange(nextRow, 4).getValue(),
+      parameters: sheet.getRange(nextRow, 5).getValue()
+    };
+    
+    console.log('チェックイン記録完了:', writtenData);
+    
+    // 成功レスポンス
+    const responseData = {
+      status: 'success',
+      message: `${userName}さんのチェックインを記録しました`,
+      action: action,
+      timestamp: timestamp,
+      userName: userName,
+      device: device,
+      row: nextRow,
+      lastRow: lastRow,
+      sheetName: sheet.getName(),
+      spreadsheetName: spreadsheet.getName(),
+      writtenData: writtenData,
+      method: 'POST'
+    };
+    
+    console.log('レスポンス:', responseData);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify(responseData))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    console.error('POST エラー:', error);
+    console.error('エラー詳細:', error.toString());
+    console.error('スタック:', error.stack);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        status: 'error',
+        message: 'チェックインエラー: ' + error.toString(),
+        action: 'checkin',
+        error: error.name,
+        stack: error.stack,
+        method: 'POST'
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
 
-        // 現在時刻の表示を更新
-        function updateCurrentTime() {
-            const now = new Date();
-            const timeString = now.toLocaleString('ja-JP', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            });
-            document.getElementById('currentTime').textContent = `現在時刻: ${timeString}`;
-        }
-
-        // 1秒ごとに時刻を更新
-        setInterval(updateCurrentTime, 1000);
-        updateCurrentTime();
-
-        // ステータス表示を更新
-        function updateStatus(message, type = 'waiting') {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = `status ${type}`;
-        }
-
-        // ユーザー情報表示を更新
-        function updateUserInfo() {
-            const userInfo = document.getElementById('userInfo');
-            
-            if (currentUserName) {
-                // ファイルからユーザー名が読み込まれている場合
-                userNameInputElement.value = currentUserName;
-                userNameInputElement.readOnly = true; // 入力欄を読み取り専用に
-                userInfo.classList.add('loaded');
-                userFileStatusElement.textContent = `ファイル: ${userFileInfo ? userFileInfo.name : '不明'}`;
-            } else {
-                // ファイルが読み込まれていない場合（手動入力またはクリア状態）
-                userNameInputElement.readOnly = false; // 入力欄を編集可能に
-                userInfo.classList.remove('loaded');
-                userFileStatusElement.textContent = 'ユーザー名ファイルは選択されていません。';
-                // userNameInputElement.value は手動入力された値があればそのまま
-            }
-            // デバッグ情報を更新
-            updateUserDebugInfo();
-        }
-
-        // ファイル選択ダイアログを開く
-        function selectUserFile() {
-            const fileInput = document.getElementById('userFileInput');
-            fileInput.onchange = handleUserFileSelect;
-            fileInput.click();
-        }
-
-        // ユーザーファイル選択処理
-        function handleUserFileSelect(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            console.log('選択されたファイル:', file.name, 'サイズ:', file.size, 'タイプ:', file.type);
-            
-            userFileInfo = {
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                lastModified: file.lastModified
-            };
-
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                try {
-                    const fileContent = e.target.result;
-                    console.log('ファイル内容:', fileContent);
-                    
-                    let parsedUserName = null;
-                    
-                    // ファイル形式に応じて解析
-                    if (file.name.toLowerCase().endsWith('.json')) {
-                        // JSONファイルの場合
-                        try {
-                            const jsonData = JSON.parse(fileContent);
-                            parsedUserName = jsonData.username || jsonData.name || jsonData.user || 
-                                      jsonData.ユーザー名 || jsonData.名前;
-                            console.log('JSON解析結果:', jsonData);
-                        } catch (jsonError) {
-                            console.error('JSON解析エラー:', jsonError);
-                            alert('JSONファイルの解析に失敗しました: ' + jsonError.message);
-                            return;
-                        }
-                    } else if (file.name.toLowerCase().endsWith('.csv')) {
-                        // CSVファイルの場合（1行目をユーザー名として扱う）
-                        const lines = fileContent.split('\n');
-                        if (lines.length > 0) {
-                            parsedUserName = lines[0].trim();
-                            // カンマ区切りの場合は最初の要素を取得
-                            if (parsedUserName.includes(',')) {
-                                parsedUserName = parsedUserName.split(',')[0].trim();
-                            }
-                        }
-                    } else {
-                        // テキストファイルの場合（1行目をユーザー名として扱う）
-                        const lines = fileContent.split('\n');
-                        if (lines.length > 0) {
-                            parsedUserName = lines[0].trim();
-                        }
-                    }
-                    
-                    if (parsedUserName && parsedUserName.length > 0) {
-                        currentUserName = parsedUserName; // ファイルから読み込んだユーザー名を設定
-                        userNameInputElement.value = currentUserName; // 入力欄にも反映
-                        userNameInputElement.readOnly = true; // 入力欄を読み取り専用に
-                        console.log('ユーザー名設定 (ファイルから):', currentUserName);
-                        updateUserInfo();
-                        updateStatus(`✅ ユーザー名を読み込みました: ${currentUserName}`, 'success');
-                        
-                        // 3秒後に元のメッセージに戻す
-                        setTimeout(() => {
-                            updateStatus('NFCタグをスマートフォンに近づけてチェックインしてください', 'waiting');
-                        }, 3000);
-                    } else {
-                        alert('ファイルからユーザー名を取得できませんでした。ファイル形式を確認してください。');
-                    }
-                    
-                } catch (error) {
-                    console.error('ファイル読み込みエラー:', error);
-                    alert('ファイルの読み込みに失敗しました: ' + error.message);
-                }
-            };
-            
-            reader.onerror = function(error) {
-                console.error('FileReader エラー:', error);
-                alert('ファイル読み込みエラーが発生しました');
-            };
-            
-            // ファイルをテキストとして読み込み
-            reader.readAsText(file, 'UTF-8');
-        }
-
-        // ユーザー情報をクリア
-        function clearUserInfo() {
-            currentUserName = null; // ファイルからのユーザー名をクリア
-            userFileInfo = null;
-            userNameInputElement.value = ''; // 入力欄の値をクリア
-            userNameInputElement.readOnly = false; // 入力欄を編集可能に
-            updateUserInfo(); // UIを更新
-            updateStatus('ユーザー情報をクリアしました', 'waiting');
-            
-            // 2秒後に元のメッセージに戻す
-            setTimeout(() => {
-                updateStatus('NFCタグをスマートフォンに近づけてチェックインしてください', 'waiting');
-            }, 2000);
-        }
-
-        // ユーザーデバッグ情報を更新
-        function updateUserDebugInfo() {
-            const userDebugElement = document.getElementById('userDebugInfo');
-            const debugInfo = {
-                activeUserName: currentUserName || userNameInputElement.value.trim() || '未設定', // 現在アクティブなユーザー名
-                fromFile: currentUserName ? true : false, // ファイルから読み込まれたか
-                fileInfo: userFileInfo,
-                timestamp: new Date().toLocaleString('ja-JP')
-            };
-            userDebugElement.textContent = JSON.stringify(debugInfo, null, 2);
-        }
-
-        // デバッグ情報を表示
-        function showDebugInfo(nfcData, url, sendData, response) {
-            const debugInfo = document.getElementById('debugInfo');
-            
-            document.getElementById('nfcData').textContent = JSON.stringify(nfcData, null, 2);
-            document.getElementById('accessUrl').textContent = url;
-            document.getElementById('sendData').textContent = JSON.stringify(sendData, null, 2);
-            
-            // レスポンス情報をより詳細に表示
-            const responseInfo = {
-                ...response,
-                timestamp: new Date().toLocaleString('ja-JP')
-            };
-            document.getElementById('responseData').textContent = JSON.stringify(responseInfo, null, 2);
-            
-            // ユーザーデバッグ情報も更新
-            updateUserDebugInfo();
-            
-            debugInfo.style.display = 'block';
-        }
-
-        // チェックインデータを送信（GET方式とPOST方式両方試行）
-        async function sendCheckinData(url) {
-            const timestamp = new Date().toLocaleString('ja-JP', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            });
-
-            // 送信するユーザー名を決定: ファイルからの名前があればそれ、なければ入力欄の値
-            const userNameToSend = currentUserName || userNameInputElement.value.trim();
-
-            const sendData = {
-                timestamp: timestamp,
-                action: 'checkin',
-                device: 'Android NFC',
-                userAgent: navigator.userAgent
-            };
-
-            // ユーザー名がある場合は追加
-            if (userNameToSend) {
-                sendData.userName = userNameToSend;
-                sendData.userFile = userFileInfo ? userFileInfo.name : 'manual_input'; // ファイルからの場合はファイル名、手動入力の場合は 'manual_input'
-            } else {
-                sendData.userName = '名前未入力';
-                sendData.userFile = 'N/A';
-            }
-
-            console.log('送信データ:', sendData);
-
-            // まずGET方式で試行
-            try {
-                let statusMessage = 'チェックイン処理中...';
-                if (userNameToSend) {
-                    statusMessage = `${userNameToSend}さんのチェックイン処理中...`;
-                }
-                updateStatus(statusMessage, 'waiting');
-                
-                // URLパラメータとして送信
-                let getUrl = `${url}?timestamp=${encodeURIComponent(timestamp)}&action=checkin&device=AndroidNFC`;
-                if (userNameToSend) {
-                    getUrl += `&userName=${encodeURIComponent(userNameToSend)}`;
-                    if (userFileInfo) {
-                        getUrl += `&userFile=${encodeURIComponent(userFileInfo.name)}`;
-                    } else {
-                        getUrl += `&userFile=manual_input`;
-                    }
-                }
-                
-                console.log('チェックイン GET URL:', getUrl);
-                
-                const getResponse = await fetch(getUrl, {
-                    method: 'GET',
-                    mode: 'no-cors' // CORSエラーを回避
-                });
-                
-                console.log('GET応答:', getResponse);
-                
-                // 成功メッセージ
-                let successMessage = `✅ チェックイン完了！時刻: ${timestamp}`;
-                if (userNameToSend) {
-                    successMessage = `✅ ${userNameToSend}さんのチェックイン完了！時刻: ${timestamp}`;
-                }
-                updateStatus(successMessage, 'success');
-                
-                return { 
-                    sendData, 
-                    responseData: { 
-                        method: 'GET',
-                        status: 'no-cors mode - response opaque',
-                        action: 'checkin',
-                        timestamp: timestamp,
-                        userName: userNameToSend
-                    }, 
-                    url: getUrl 
-                };
-
-            } catch (getError) {
-                console.error('GET方式エラー:', getError);
-                
-                // GET方式が失敗した場合、POST方式を試行
-                try {
-                    updateStatus('POST方式でチェックイン再試行中...', 'waiting');
-                    
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        mode: 'no-cors', // CORSエラーを回避
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(sendData)
-                    });
-
-                    console.log('POST応答:', response);
-                    
-                    let successMessage = `✅ チェックイン完了！時刻: ${timestamp}`;
-                    if (userNameToSend) {
-                        successMessage = `✅ ${userNameToSend}さんのチェックイン完了！時刻: ${timestamp}`;
-                    }
-                    updateStatus(successMessage, 'success');
-
-                    return { 
-                        sendData, 
-                        responseData: { 
-                            method: 'POST',
-                            status: 'no-cors mode - response opaque',
-                            action: 'checkin',
-                            timestamp: timestamp,
-                            userName: userNameToSend
-                        }, 
-                        url 
-                    };
-
-                } catch (postError) {
-                    console.error('POST方式エラー:', postError);
-                    
-                    const errorData = {
-                        getError: getError.message,
-                        postError: postError.message,
-                        action: 'checkin',
-                        timestamp: timestamp,
-                        userName: userNameToSend,
-                        url: url
-                    };
-                    
-                    updateStatus(`❌ チェックイン失敗: 両方式でエラー`, 'error');
-                    return { sendData, responseData: errorData, url };
-                }
-            }
-        }
-
-        // NFC読み込み開始
-        async function startNFC() {
-            if (!('NDEFReader' in window)) {
-                updateStatus('❌ このブラウザはNFCに対応していません', 'error');
-                return;
-            }
-
-            if (isNFCActive) {
-                updateStatus('NFC読み込みは既に開始されています', 'waiting');
-                return;
-            }
-
-            try {
-                const ndef = new NDEFReader();
-                await ndef.scan();
-                
-                isNFCActive = true;
-                updateStatus('🔍 NFCタグを探しています...', 'waiting');
-                document.getElementById('startButton').disabled = true;
-
-                ndef.addEventListener('reading', async ({ message, serialNumber }) => {
-                    console.log('NFC読み込み完了:', message);
-                    
-                    let url = null;
-                    const nfcData = {
-                        serialNumber: serialNumber,
-                        records: []
-                    };
-
-                    // NFCデータを解析
-                    for (const record of message.records) {
-                        const recordData = {
-                            recordType: record.recordType,
-                            mediaType: record.mediaType
-                        };
-
-                        if (record.recordType === 'url') {
-                            // URLレコードの場合、DataViewをデコード
-                            const decoder = new TextDecoder();
-                            url = decoder.decode(record.data);
-                            recordData.data = url;
-                        } else if (record.recordType === 'text') {
-                            const decoder = new TextDecoder();
-                            const text = decoder.decode(record.data);
-                            recordData.data = text;
-                            
-                            // テキストがURLの場合
-                            if (text.startsWith('http')) {
-                                url = text;
-                            }
-                        } else if (record.recordType === 'absolute-url') {
-                            // 絶対URLレコードの場合
-                            const decoder = new TextDecoder();
-                            url = decoder.decode(record.data);
-                            recordData.data = url;
-                        } else {
-                            // その他のデータ型
-                            try {
-                                const decoder = new TextDecoder();
-                                const decodedText = decoder.decode(record.data);
-                                recordData.data = decodedText;
-                                
-                                // デコードしたテキストがURLかチェック
-                                if (decodedText.startsWith('http')) {
-                                    url = decodedText;
-                                }
-                            } catch (e) {
-                                recordData.data = new Uint8Array(record.data);
-                            }
-                        }
-                        
-                        nfcData.records.push(recordData);
-                    }
-
-                    // 読み取り内容を表示
-                    document.getElementById('nfcData').textContent = JSON.stringify(nfcData, null, 2);
-                    document.getElementById('debugInfo').style.display = 'block'; // デバッグ情報を表示
-                    updateStatus('📡 NFCタグを読み込みました', 'success'); // 成功ステータス
-
-                    // 読み込み内容を30秒間表示
-                    // このsetTimeoutの完了後にGAS送信結果が表示され、その表示も継続する
-                    setTimeout(async () => {
-                        // GASへのデータ送信
-                        const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbxc34pxlopp11fGMV7EUgNulDLyXc_j8fJ7uacqrhHppx2iOHu28a38-EWmbI-aLqX4/exec'; 
-                        
-                        if (!gasWebAppUrl || gasWebAppUrl.includes('【')) { // URLが設定されていない場合のチェック
-                            showErrorMessage('GASのWebアプリURLが設定されていません。');
-                            // エラーメッセージは表示されるが、読み取り内容はそのまま残る
-                            return;
-                        }
-
-                        // sendCheckinData関数は内部でステータスを更新するため、ここでは updateStatus を呼ばない
-                        const result = await sendCheckinData(gasWebAppUrl);
-                        
-                        // デバッグ情報を更新
-                        showDebugInfo(nfcData, result.url, result.sendData, result.responseData);
-
-                        // GAS送信結果のメッセージは表示されたままにする
-                        // hideTemporaryMessages() は呼ばない
-                        // メインステータスは「NFCタグをスマートフォンにかざしてください…」のまま
-                        updateStatus('NFCタグをスマートフォンにかざしてください…', 'waiting'); // メインステータスに戻す
-
-                    }, 10000); // 10秒後にGAS送信を開始
-
-                });
-
-                ndef.addEventListener('readingerror', (error) => {
-                    console.error('NFC読み込みエラー:', error);
-                    updateStatus('❌ NFC読み込みエラーが発生しました', 'error');
-                    
-                    // エラーメッセージを30秒間表示し続ける
-                    document.getElementById('debugInfo').style.display = 'block'; // デバッグ情報を表示
-                    document.getElementById('nfcData').textContent = 'NFC読み込みエラーのためデータなし';
-                    document.getElementById('accessUrl').textContent = 'N/A';
-                    document.getElementById('sendData').textContent = 'N/A';
-                    document.getElementById('responseData').textContent = JSON.stringify({ error: error.message || '不明なエラー' }, null, 2);
-                    
-                    // エラーメッセージは表示されたままにする
-                    // hideTemporaryMessages() は呼ばない
-                    updateStatus('NFCタグをスマートフォンに近づけてチェックインしてください', 'waiting'); // メインステータスに戻す
-                });
-
-            } catch (error) {
-                console.error('NFC開始エラー:', error);
-                updateStatus(`❌ NFCの開始に失敗: ${error.message}`, 'error');
-                
-                // 致命的なエラーなので、30秒後に完全に初期状態に戻す
-                setTimeout(() => resetToInitialState(), 30000); 
-            }
-        }
-
-        // ページ読み込み完了時の初期化
-        document.addEventListener('DOMContentLoaded', function() {
-            if (!('NDEFReader' in window)) {
-                updateStatus('❌ このデバイスはNFCに対応していません', 'error');
-                document.getElementById('startButton').disabled = true;
-            }
-            
-            // 初期状態のユーザー情報を表示
-            updateUserInfo();
-        });
-    </script>
-</body>
-</html>
+// テスト用関数（Apps Scriptエディタで実行可能）
+function testCheckinFunction() {
+  try {
+    console.log('チェックインテスト開始');
+    
+    const testTimestamp = new Date().toLocaleString('ja-JP');
+    const testUserName = 'テストユーザー';
+    const testAction = 'checkin';
+    const testDevice = 'TestDevice';
+    const testUserFile = 'test.txt';
+    
+    console.log('テスト情報:', {
+      timestamp: testTimestamp,
+      userName: testUserName,
+      action: testAction,
+      device: testDevice,
+      userFile: testUserFile
+    });
+    
+    // スプレッドシートを開く
+    let spreadsheet;
+    let sheet;
+    
+    if (SPREADSHEET_ID && SPREADSHEET_ID !== "") {
+      spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+      sheet = spreadsheet.getActiveSheet();
+    } else {
+      spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+      sheet = spreadsheet.getActiveSheet();
+    }
+    
+    console.log('スプレッドシート名:', spreadsheet.getName());
+    console.log('シート名:', sheet.getName());
+    
+    const lastRow = sheet.getLastRow();
+    const nextRow = lastRow + 1;
+    
+    console.log('最終行:', lastRow, '次の行:', nextRow);
+    
+    // 各列にテストデータを書き込み
+    sheet.getRange(nextRow, 1).setValue(testTimestamp);  // A列: 時刻
+    sheet.getRange(nextRow, 2).setValue(testUserName);   // B列: ユーザー
+    sheet.getRange(nextRow, 3).setValue(testAction);     // C列: アクション
+    sheet.getRange(nextRow, 4).setValue(`${testDevice} (ファイル: ${testUserFile})`); // D列: 備考
+    sheet.getRange(nextRow, 5).setValue(JSON.stringify({ // E列: パラメータ
+      device: testDevice,
+      action: testAction,
+      timestamp: testTimestamp,
+      userFile: testUserFile,
+      userName: testUserName
+    }));
+    
+    console.log('チェックインテスト完了');
+    
+  } catch (error) {
+    console.error('チェックインテストエラー:', error);
+  }
+}
