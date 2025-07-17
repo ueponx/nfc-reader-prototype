@@ -171,6 +171,13 @@
             font-weight: bold;
             color: #333;
         }
+        .manual-test-button {
+            background-color: #ff5722;
+            margin-top: 10px;
+        }
+        .manual-test-button:hover {
+            background-color: #e64a19;
+        }
     </style>
 </head>
 <body>
@@ -216,6 +223,7 @@
             <div class="timestamp" id="currentTime"></div>
             
             <button id="startButton" onclick="startNFC()">NFC読み込み開始</button>
+            <button class="manual-test-button" onclick="manualTest()">🧪 手動テスト送信</button>
         </div>
         
         <!-- デバッグ情報 -->
@@ -472,8 +480,11 @@
             debugInfo.style.display = 'block';
         }
 
-        // チェックインデータを送信（確実なユーザー名取得版）
+        // 改良版チェックインデータ送信（複数方式で確実に送信）
         async function sendCheckinData(url) {
+            console.log('=== sendCheckinData 開始 ===');
+            console.log('URL:', url);
+            
             const timestamp = new Date().toLocaleString('ja-JP', {
                 year: 'numeric',
                 month: '2-digit',
@@ -483,78 +494,97 @@
                 second: '2-digit'
             });
 
-            // ユーザー名を確実に取得（送信時に直接フィールドから取得）
+            // ユーザー名を確実に取得
             let effectiveUserName = 'Unknown';
             let inputMethod = 'manual';
+            
+            console.log('ユーザー名取得:');
+            console.log('- currentUserName:', currentUserName);
+            console.log('- manualUserName:', manualUserName);
             
             // 1. ファイルから読み込まれたユーザー名をチェック
             if (currentUserName && currentUserName.trim().length > 0) {
                 effectiveUserName = currentUserName.trim();
                 inputMethod = 'file';
+                console.log('✅ ファイルからユーザー名取得:', effectiveUserName);
             } else {
                 // 2. 手動入力フィールドから直接取得
                 const manualInputElement = document.getElementById('manualNameInput');
                 if (manualInputElement && manualInputElement.value && manualInputElement.value.trim().length > 0) {
                     effectiveUserName = manualInputElement.value.trim();
                     inputMethod = 'manual';
+                    console.log('✅ 手動入力からユーザー名取得:', effectiveUserName);
+                } else {
+                    console.log('❌ ユーザー名が見つからない - Unknownを使用');
                 }
             }
 
-            // デバッグ情報を画面に表示
-            const debugText = `ユーザー名: ${effectiveUserName} (${inputMethod})`;
-            updateStatus(`送信準備中... ${debugText}`, 'waiting');
+            console.log('最終ユーザー名:', effectiveUserName);
+
+            // 送信データ
+            const sendData = {
+                timestamp: timestamp,
+                action: 'checkin',
+                userName: effectiveUserName,
+                inputMethod: inputMethod,
+                device: 'Android NFC'
+            };
+
+            console.log('送信データ:', sendData);
+
+            // URLパラメータを構築
+            const params = new URLSearchParams(sendData);
+            const getUrl = `${url}?${params.toString()}`;
             
-            // 少し待ってから送信（ユーザーが確認できるように）
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            console.log('送信URL:', getUrl);
+
+            // ステータス更新
+            const statusMessage = effectiveUserName !== 'Unknown' 
+                ? `${effectiveUserName}さんのチェックイン送信中...` 
+                : 'チェックイン送信中...';
+            updateStatus(statusMessage, 'waiting');
 
             try {
-                let statusMessage = 'チェックイン処理中...';
-                if (effectiveUserName !== 'Unknown') {
-                    statusMessage = `${effectiveUserName}さんのチェックイン処理中...`;
-                }
-                updateStatus(statusMessage, 'waiting');
-                
-                // 送信データ（指定された形式）
-                const sendData = {
-                    timestamp: timestamp,
-                    action: 'checkin',
-                    userName: effectiveUserName,
-                    inputMethod: inputMethod,
-                    device: 'Android NFC'
-                };
+                // 複数の方式で送信（確実性を高める）
+                const sendPromises = [];
 
-                // URLパラメータを構築
-                const params = new URLSearchParams({
-                    timestamp: timestamp,
-                    action: 'checkin',
-                    userName: effectiveUserName,
-                    inputMethod: inputMethod,
-                    device: 'Android NFC'
-                });
-                
-                const getUrl = `${url}?${params.toString()}`;
-                
-                // 送信
-                await fetch(getUrl, {
-                    method: 'GET',
-                    mode: 'no-cors'
-                });
-                
+                // 1. Image方式（最も確実）
+                sendPromises.push(new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => resolve('Image: success');
+                    img.onerror = () => resolve('Image: sent');
+                    setTimeout(() => resolve('Image: timeout'), 3000);
+                    img.src = getUrl;
+                }));
+
+                // 2. Fetch no-cors方式
+                sendPromises.push(
+                    fetch(getUrl, { method: 'GET', mode: 'no-cors' })
+                        .then(() => 'Fetch no-cors: sent')
+                        .catch(err => `Fetch no-cors: error - ${err.message}`)
+                );
+
+                // 3. Fetch CORS方式（試行）
+                sendPromises.push(
+                    fetch(getUrl, { method: 'GET', mode: 'cors' })
+                        .then(response => `Fetch CORS: ${response.status}`)
+                        .catch(err => `Fetch CORS: error - ${err.message}`)
+                );
+
+                // 全ての送信方式を実行
+                const results = await Promise.all(sendPromises);
+                console.log('送信結果:', results);
+
                 // 成功メッセージ
-                let successMessage = `✅ チェックイン完了！`;
-                if (effectiveUserName !== 'Unknown') {
-                    successMessage = `😊 ${effectiveUserName}さん、チェックイン完了！`;
-                } else {
-                    successMessage = `✅ チェックイン完了！（ユーザー名なし）`;
-                }
+                const successMessage = effectiveUserName !== 'Unknown' 
+                    ? `😊 ${effectiveUserName}さん、チェックイン完了！` 
+                    : '✅ チェックイン完了！';
                 updateStatus(successMessage, 'success');
-                
+
                 return { 
                     sendData, 
                     responseData: { 
-                        method: 'no-cors GET',
-                        status: 'sent once only',
-                        action: 'checkin',
+                        methods: results,
                         timestamp: timestamp,
                         userName: effectiveUserName
                     }, 
@@ -562,87 +592,36 @@
                 };
 
             } catch (error) {
-                const errorData = {
-                    error: error.message,
-                    action: 'checkin',
-                    timestamp: timestamp,
-                    userName: effectiveUserName,
-                    url: url
-                };
-                
-                updateStatus(`❌ チェックイン送信失敗`, 'error');
+                console.error('送信エラー:', error);
+                updateStatus('❌ チェックイン送信失敗', 'error');
                 return { 
-                    sendData: { 
-                        timestamp: timestamp, 
-                        userName: effectiveUserName,
-                        action: 'checkin',
-                        inputMethod: inputMethod,
-                        device: 'Android NFC'
-                    }, 
-                    responseData: errorData, 
-                    url 
+                    sendData, 
+                    responseData: { error: error.message }, 
+                    url: getUrl 
                 };
             }
         }
 
-        // テスト送信機能を追加（画面遷移を防止）
-        async function testDirectSend() {
-            console.log('=== テスト送信開始 ===');
+        // 手動テスト送信
+        async function manualTest() {
+            console.log('手動テスト送信開始');
             
-            // テスト用のダミーURL（実際のGoogle Apps ScriptのURLに置き換えてください）
-            const testUrl = prompt('Google Apps ScriptのURLを入力してください:');
-            if (!testUrl) {
-                alert('URLが入力されませんでした。');
-                return;
-            }
+            // デフォルトのGAS URL（デバッグ版で確認済み）
+            const testUrl = 'https://script.google.com/macros/s/AKfycbywswLc2pqHUM4Ywc3ZD7JXzDvlgzwgJOzJE-rM3zZSrOeslstFYpW9LTUc91vn0bVy/exec';
             
-            updateStatus('📤 テスト送信中...', 'waiting');
+            updateStatus('🧪 手動テスト送信中...', 'waiting');
             
-            const timestamp = new Date().toLocaleString('ja-JP');
-            const testUserName = manualUserName || currentUserName || 'テストユーザー';
-            const testInputMethod = currentUserName ? 'file' : 'manual';
+            const result = await sendCheckinData(testUrl);
             
-            // URLパラメータを手動で構築
-            const paramString = [
-                `timestamp=${encodeURIComponent(timestamp)}`,
-                `action=${encodeURIComponent('checkin')}`,
-                `userName=${encodeURIComponent(testUserName)}`,
-                `inputMethod=${encodeURIComponent(testInputMethod)}`,
-                `device=${encodeURIComponent('Android NFC')}`
-            ].join('&');
+            // デバッグ情報を表示
+            showDebugInfo(
+                { manual: true, test: true }, 
+                result.url, 
+                result.sendData, 
+                result.responseData
+            );
             
-            const testSendUrl = `${testUrl}?${paramString}`;
-            console.log('テスト送信URL:', testSendUrl);
-            
-            // 画面遷移しない方法で送信
-            const results = [];
-            
-            // 1. 画像タグで送信
-            try {
-                const img = new Image();
-                img.onload = () => results.push('Image: 送信成功');
-                img.onerror = () => results.push('Image: 送信完了（予期される）');
-                img.src = testSendUrl;
-                results.push('Image: 送信実行');
-            } catch (e) {
-                results.push(`Image: エラー - ${e.message}`);
-            }
-            
-            // 2. no-cors fetch
-            try {
-                await fetch(testSendUrl, { method: 'GET', mode: 'no-cors' });
-                results.push('no-cors: 送信完了');
-            } catch (e) {
-                results.push(`no-cors: エラー - ${e.message}`);
-            }
-            
-            console.log('テスト結果:', results);
-            updateStatus(`📊 テスト送信完了`, 'success');
-            
-            // 結果をアラートで表示
-            setTimeout(() => {
-                alert(`テスト送信結果:\n${results.join('\n')}\n\nGoogle Apps Scriptの「実行記録」を確認してください。\n\n送信データ:\n- ユーザー: ${testUserName}\n- 入力方法: ${testInputMethod}\n- 時刻: ${timestamp}`);
-            }, 1000);
+            console.log('手動テスト完了:', result);
         }
 
         // NFC読み込み開始（重複防止強化版）
@@ -735,7 +714,7 @@
                     if (url) {
                         updateStatus('📡 NFCタグからURLを読み込みました', 'success');
                         
-                        // チェックインデータを送信（1回のみ）
+                        // チェックインデータを送信
                         const result = await sendCheckinData(url);
                         
                         // デバッグ情報を表示
@@ -781,6 +760,8 @@
             
             // 手動入力の監視を開始
             setupManualNameInput();
+            
+            console.log('スマコネアプリ初期化完了');
         });
     </script>
 </body>
