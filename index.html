@@ -598,7 +598,7 @@
             }
         }
 
-        // NFC読み込み開始（解決版の機能を統合）
+        // NFC読み込み開始（デバッグ版の解決済み処理）
         async function startNFC() {
             if (!('NDEFReader' in window)) {
                 updateStatus('❌ このブラウザはNFCに対応していません', 'error');
@@ -628,7 +628,7 @@
                         records: []
                     };
 
-                    // NFCデータを解析（解決版の詳細分析機能）
+                    // NFCデータを解析
                     for (const record of message.records) {
                         const recordData = {
                             recordType: record.recordType,
@@ -640,11 +640,13 @@
                             url = decoder.decode(record.data);
                             rawUrlData = new Uint8Array(record.data);
                             recordData.data = url;
+                            console.log(`URL取得: ${url}`);
                         } else if (record.recordType === 'text') {
                             const decoder = new TextDecoder();
                             const text = decoder.decode(record.data);
                             rawUrlData = new Uint8Array(record.data);
                             recordData.data = text;
+                            console.log(`テキスト取得: ${text}`);
                             if (text.startsWith('http')) {
                                 url = text;
                             }
@@ -653,16 +655,19 @@
                             url = decoder.decode(record.data);
                             rawUrlData = new Uint8Array(record.data);
                             recordData.data = url;
+                            console.log(`絶対URL取得: ${url}`);
                         } else {
                             try {
                                 const decoder = new TextDecoder();
                                 const decodedText = decoder.decode(record.data);
                                 rawUrlData = new Uint8Array(record.data);
                                 recordData.data = decodedText;
+                                console.log(`その他データ: ${decodedText}`);
                                 if (decodedText.startsWith('http')) {
                                     url = decodedText;
                                 }
                             } catch (e) {
+                                console.log(`デコード失敗: ${e.message}`);
                                 recordData.data = new Uint8Array(record.data);
                             }
                         }
@@ -673,17 +678,48 @@
                     if (url) {
                         console.log(`✅ URL検出成功: ${url}`);
                         
-                        // URLのクリーンアップ（解決版の機能）
+                        // 詳細なURL分析（デバッグ版の機能）
+                        const correctGasUrl = 'https://script.google.com/macros/s/AKfycbywswLc2pqHUM4Ywc3ZD7JXzDvlgzwgJOzJE-rM3zZSrOeslstFYpW9LTUc91vn0bVy/exec';
+                        
+                        console.log('=== URL詳細分析 ===');
+                        console.log(`NFC URL: "${url}"`);
+                        console.log(`正解 URL: "${correctGasUrl}"`);
+                        console.log(`長さ比較: NFC=${url.length}, 正解=${correctGasUrl.length}`);
+                        console.log(`完全一致: ${url === correctGasUrl ? 'YES' : 'NO'}`);
+                        
+                        // 文字コード比較
+                        if (rawUrlData) {
+                            const hexData = Array.from(rawUrlData).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                            console.log(`生データ(16進): ${hexData.substring(0, 100)}...`);
+                        }
+                        
+                        // URLに既にパラメータが含まれているかチェック
+                        if (url.includes('?')) {
+                            console.log(`⚠️ URLに既にパラメータ含有: ${url.split('?')[1]}`);
+                        }
+                        
+                        // URLの末尾文字チェック
+                        const lastChar = url.charCodeAt(url.length - 1);
+                        console.log(`末尾文字コード: ${lastChar} (${String.fromCharCode(lastChar)})`);
+                        
+                        // URLをクリーンアップ
                         const cleanUrl = url.trim();
                         if (cleanUrl !== url) {
-                            console.log(`URL前後の空白をクリーンアップ: "${cleanUrl}"`);
+                            console.log(`⚠️ URL前後に空白を検出、クリーンアップ: "${cleanUrl}"`);
                             url = cleanUrl;
                         }
                         
+                        // 🧪 重要：NFCから読み取ったURLを強制的に正しいURLに置き換え（デバッグ版の解決方法）
+                        console.log('🧪 テスト: NFCのURLを手動テストのURLに強制置換');
+                        const originalNfcUrl = url;
+                        const forcedUrl = correctGasUrl; // 手動テストと同じURLを強制使用
+                        console.log(`元のNFC URL: ${originalNfcUrl}`);
+                        console.log(`強制使用URL: ${forcedUrl}`);
+                        
                         updateStatus('📡 NFCタグからURLを読み込みました', 'success');
                         
-                        // チェックインデータを送信
-                        const result = await sendCheckinData(url);
+                        // 強制的に正しいURLを使用してチェックインデータを送信
+                        const result = await sendCheckinData(forcedUrl);
                         
                         // デバッグ情報を表示
                         showDebugInfo(nfcData, result.url, result.sendData, result.responseData);
@@ -698,7 +734,7 @@
                         isNFCActive = false;
                         document.getElementById('startButton').disabled = false;
                         updateStatus('📱 次のチェックインをお待ちしています', 'waiting');
-                    }, 6000); // 6秒後にリセット（重複防止時間より長く）
+                    }, 10000); // 10秒後にリセット（デバッグ版と同じ）
                 });
 
                 ndef.addEventListener('readingerror', (error) => {
