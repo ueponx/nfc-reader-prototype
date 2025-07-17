@@ -480,11 +480,8 @@
             debugInfo.style.display = 'block';
         }
 
-        // 改良版チェックインデータ送信（複数方式で確実に送信）
-        async function sendCheckinData(url) {
-            console.log('=== sendCheckinData 開始 ===');
-            console.log('URL:', url);
-            
+        // デバッグ版と同じ方式でURL構築
+        function buildCheckinURL(baseUrl) {
             const timestamp = new Date().toLocaleString('ja-JP', {
                 year: 'numeric',
                 month: '2-digit',
@@ -494,110 +491,107 @@
                 second: '2-digit'
             });
 
-            // ユーザー名を確実に取得
-            let effectiveUserName = 'Unknown';
-            let inputMethod = 'manual';
+            // デバッグ版と同じシンプルなユーザー名取得
+            let userName = 'Unknown';
             
-            console.log('ユーザー名取得:');
-            console.log('- currentUserName:', currentUserName);
-            console.log('- manualUserName:', manualUserName);
-            
-            // 1. ファイルから読み込まれたユーザー名をチェック
-            if (currentUserName && currentUserName.trim().length > 0) {
-                effectiveUserName = currentUserName.trim();
-                inputMethod = 'file';
-                console.log('✅ ファイルからユーザー名取得:', effectiveUserName);
+            // 手動入力フィールドから直接取得（デバッグ版と同じ方式）
+            const manualInputElement = document.getElementById('manualNameInput');
+            if (manualInputElement && manualInputElement.value && manualInputElement.value.trim().length > 0) {
+                userName = manualInputElement.value.trim();
+                console.log('✅ 手動入力からユーザー名取得:', userName);
+            } else if (currentUserName && currentUserName.trim().length > 0) {
+                userName = currentUserName.trim();
+                console.log('✅ ファイルからユーザー名取得:', userName);
             } else {
-                // 2. 手動入力フィールドから直接取得
-                const manualInputElement = document.getElementById('manualNameInput');
-                if (manualInputElement && manualInputElement.value && manualInputElement.value.trim().length > 0) {
-                    effectiveUserName = manualInputElement.value.trim();
-                    inputMethod = 'manual';
-                    console.log('✅ 手動入力からユーザー名取得:', effectiveUserName);
-                } else {
-                    console.log('❌ ユーザー名が見つからない - Unknownを使用');
-                }
+                console.log('❌ ユーザー名が見つからない - Unknownを使用');
             }
 
-            console.log('最終ユーザー名:', effectiveUserName);
-
-            // 送信データ
-            const sendData = {
+            // デバッグ版と同じパラメータ構築
+            const params = new URLSearchParams({
                 timestamp: timestamp,
                 action: 'checkin',
-                userName: effectiveUserName,
-                inputMethod: inputMethod,
+                userName: userName,
+                inputMethod: 'manual',
                 device: 'Android NFC'
-            };
-
-            console.log('送信データ:', sendData);
-
-            // URLパラメータを構築
-            const params = new URLSearchParams(sendData);
-            const getUrl = `${url}?${params.toString()}`;
+            });
             
-            console.log('送信URL:', getUrl);
+            const fullUrl = `${baseUrl}?${params.toString()}`;
+            console.log('構築したURL:', fullUrl);
+            console.log('ユーザー名:', userName);
+            
+            return {
+                url: fullUrl,
+                userName: userName,
+                timestamp: timestamp
+            };
+        }
+
+        // シンプル版チェックインデータ送信（デバッグ版と同じ方式）
+        async function sendCheckinData(url) {
+            console.log('=== sendCheckinData 開始 ===');
+            console.log('ベースURL:', url);
+            
+            const { url: fullUrl, userName, timestamp } = buildCheckinURL(url);
 
             // ステータス更新
-            const statusMessage = effectiveUserName !== 'Unknown' 
-                ? `${effectiveUserName}さんのチェックイン送信中...` 
+            const statusMessage = userName !== 'Unknown' 
+                ? `${userName}さんのチェックイン送信中...` 
                 : 'チェックイン送信中...';
             updateStatus(statusMessage, 'waiting');
 
             try {
-                // 複数の方式で送信（確実性を高める）
-                const sendPromises = [];
-
-                // 1. Image方式（最も確実）
-                sendPromises.push(new Promise((resolve) => {
+                // デバッグ版で動作確認済みのImage方式を使用
+                console.log('Image方式で送信開始');
+                
+                const imageResult = await new Promise((resolve) => {
                     const img = new Image();
-                    img.onload = () => resolve('Image: success');
-                    img.onerror = () => resolve('Image: sent');
-                    setTimeout(() => resolve('Image: timeout'), 3000);
-                    img.src = getUrl;
-                }));
+                    
+                    img.onload = function() {
+                        console.log('Image: onload イベント発生');
+                        resolve('success');
+                    };
+                    
+                    img.onerror = function() {
+                        console.log('Image: onerror イベント発生（正常）');
+                        resolve('sent');
+                    };
+                    
+                    // 5秒でタイムアウト
+                    setTimeout(() => {
+                        console.log('Image: 5秒経過、送信完了と判断');
+                        resolve('timeout');
+                    }, 5000);
+                    
+                    img.src = fullUrl;
+                    console.log('Image: src設定完了、送信実行');
+                });
 
-                // 2. Fetch no-cors方式
-                sendPromises.push(
-                    fetch(getUrl, { method: 'GET', mode: 'no-cors' })
-                        .then(() => 'Fetch no-cors: sent')
-                        .catch(err => `Fetch no-cors: error - ${err.message}`)
-                );
-
-                // 3. Fetch CORS方式（試行）
-                sendPromises.push(
-                    fetch(getUrl, { method: 'GET', mode: 'cors' })
-                        .then(response => `Fetch CORS: ${response.status}`)
-                        .catch(err => `Fetch CORS: error - ${err.message}`)
-                );
-
-                // 全ての送信方式を実行
-                const results = await Promise.all(sendPromises);
-                console.log('送信結果:', results);
+                console.log('Image送信結果:', imageResult);
 
                 // 成功メッセージ
-                const successMessage = effectiveUserName !== 'Unknown' 
-                    ? `😊 ${effectiveUserName}さん、チェックイン完了！` 
+                const successMessage = userName !== 'Unknown' 
+                    ? `😊 ${userName}さん、チェックイン完了！` 
                     : '✅ チェックイン完了！';
                 updateStatus(successMessage, 'success');
 
                 return { 
-                    sendData, 
+                    sendData: { userName, timestamp, method: 'Image' },
                     responseData: { 
-                        methods: results,
+                        method: 'Image',
+                        result: imageResult,
                         timestamp: timestamp,
-                        userName: effectiveUserName
+                        userName: userName
                     }, 
-                    url: getUrl 
+                    url: fullUrl 
                 };
 
             } catch (error) {
                 console.error('送信エラー:', error);
                 updateStatus('❌ チェックイン送信失敗', 'error');
                 return { 
-                    sendData, 
+                    sendData: { userName, timestamp },
                     responseData: { error: error.message }, 
-                    url: getUrl 
+                    url: fullUrl 
                 };
             }
         }
