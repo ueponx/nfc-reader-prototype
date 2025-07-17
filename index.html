@@ -473,7 +473,7 @@
             debugInfo.style.display = 'block';
         }
 
-        // チェックインデータを送信（改善版）
+        // チェックインデータを送信（1回のみ）
         async function sendCheckinData(url) {
             const timestamp = new Date().toLocaleString('ja-JP', {
                 year: 'numeric',
@@ -485,108 +485,70 @@
             });
 
             // 有効なユーザー名を決定（ファイル優先、次に手動入力）
-            const effectiveUserName = currentUserName || (manualUserName && manualUserName.length > 0 ? manualUserName : null);
+            const effectiveUserName = currentUserName || (manualUserName && manualUserName.length > 0 ? manualUserName : 'Unknown');
+
+            // 入力方法を決定
+            let inputMethod = 'manual';
+            if (currentUserName) {
+                inputMethod = 'file';
+            }
 
             console.log('送信準備:', {
                 timestamp: timestamp,
                 effectiveUserName: effectiveUserName,
-                currentUserName: currentUserName,
-                manualUserName: manualUserName
+                inputMethod: inputMethod
             });
 
-            // まず確実にGET方式で送信（corsモードでも試行）
             try {
                 let statusMessage = 'チェックイン処理中...';
-                if (effectiveUserName) {
+                if (effectiveUserName !== 'Unknown') {
                     statusMessage = `${effectiveUserName}さんのチェックイン処理中...`;
                 }
                 updateStatus(statusMessage, 'waiting');
                 
+                // 送信データ（指定された形式）
+                const sendData = {
+                    timestamp: timestamp,
+                    action: 'checkin',
+                    userName: effectiveUserName,
+                    inputMethod: inputMethod,
+                    device: 'Android NFC'
+                };
+
                 // URLパラメータを構築
                 const params = new URLSearchParams({
                     timestamp: timestamp,
                     action: 'checkin',
+                    userName: effectiveUserName,
+                    inputMethod: inputMethod,
                     device: 'AndroidNFC'
                 });
                 
-                if (effectiveUserName) {
-                    params.append('userName', effectiveUserName);
-                    if (currentUserName && userFileInfo) {
-                        params.append('userFile', userFileInfo.name);
-                        params.append('inputMethod', 'file');
-                    } else {
-                        params.append('inputMethod', 'manual');
-                    }
-                }
-                
                 const getUrl = `${url}?${params.toString()}`;
                 console.log('送信URL:', getUrl);
+                console.log('送信データ:', sendData);
                 
-                // まずno-corsで送信
-                try {
-                    const noCorsResponse = await fetch(getUrl, {
-                        method: 'GET',
-                        mode: 'no-cors'
-                    });
-                    console.log('no-cors応答:', noCorsResponse);
-                } catch (noCorsError) {
-                    console.log('no-cors送信エラー:', noCorsError);
-                }
+                // 1回だけGET送信（no-corsモード）
+                const response = await fetch(getUrl, {
+                    method: 'GET',
+                    mode: 'no-cors'
+                });
                 
-                // 続いてcorsモードでも試行（エラーが出てもリクエストは送信される場合がある）
-                try {
-                    const corsResponse = await fetch(getUrl, {
-                        method: 'GET',
-                        mode: 'cors'
-                    });
-                    console.log('cors応答:', corsResponse);
-                    
-                    if (corsResponse.ok) {
-                        const responseText = await corsResponse.text();
-                        console.log('corsレスポンステキスト:', responseText);
-                    }
-                } catch (corsError) {
-                    console.log('cors送信（エラーでも送信される）:', corsError.message);
-                }
-                
-                // iframe経由での送信も試行（古い手法だが確実）
-                try {
-                    const iframe = document.createElement('iframe');
-                    iframe.style.display = 'none';
-                    iframe.src = getUrl;
-                    document.body.appendChild(iframe);
-                    
-                    setTimeout(() => {
-                        document.body.removeChild(iframe);
-                    }, 3000);
-                    
-                    console.log('iframe送信完了');
-                } catch (iframeError) {
-                    console.log('iframe送信エラー:', iframeError);
-                }
+                console.log('送信応答:', response);
                 
                 // 成功メッセージ
-                let successMessage = `✅ チェックイン送信完了！時刻: ${timestamp}`;
-                if (effectiveUserName) {
-                    successMessage = `😊 ${effectiveUserName}さん、チェックイン送信完了！`;
+                let successMessage = `✅ チェックイン完了！時刻: ${timestamp}`;
+                if (effectiveUserName !== 'Unknown') {
+                    successMessage = `😊 ${effectiveUserName}さん、チェックイン完了！`;
                 }
                 updateStatus(successMessage, 'success');
-                
-                // 送信データ情報
-                const sendData = {
-                    timestamp: timestamp,
-                    action: 'checkin',
-                    device: 'Android NFC',
-                    userName: effectiveUserName || 'Unknown',
-                    inputMethod: currentUserName ? 'file' : 'manual',
-                    userFile: currentUserName && userFileInfo ? userFileInfo.name : undefined
-                };
                 
                 return { 
                     sendData, 
                     responseData: { 
-                        method: 'GET (multiple attempts)',
-                        status: 'sent via no-cors, cors, and iframe',
+                        method: 'GET',
+                        status: 'no-cors mode - response opaque',
+                        action: 'checkin',
                         timestamp: timestamp,
                         userName: effectiveUserName
                     }, 
@@ -608,7 +570,10 @@
                 return { 
                     sendData: { 
                         timestamp: timestamp, 
-                        userName: effectiveUserName 
+                        userName: effectiveUserName,
+                        action: 'checkin',
+                        inputMethod: inputMethod,
+                        device: 'Android NFC'
                     }, 
                     responseData: errorData, 
                     url 
