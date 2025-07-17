@@ -472,10 +472,8 @@
             debugInfo.style.display = 'block';
         }
 
-        // チェックインデータを送信（ユーザー名デバッグ強化版）
+        // チェックインデータを送信（確実なユーザー名取得版）
         async function sendCheckinData(url) {
-            console.log('=== sendCheckinData開始 ===');
-            
             const timestamp = new Date().toLocaleString('ja-JP', {
                 year: 'numeric',
                 month: '2-digit',
@@ -485,50 +483,29 @@
                 second: '2-digit'
             });
 
-            // 現在の状態を詳細にログ出力
-            console.log('=== 現在のユーザー名変数の状態 ===');
-            console.log('currentUserName:', currentUserName, '(型:', typeof currentUserName, ')');
-            console.log('manualUserName:', manualUserName, '(型:', typeof manualUserName, ')');
-            
-            // 手動入力フィールドの値を直接取得
-            const manualInputElement = document.getElementById('manualNameInput');
-            const manualInputValue = manualInputElement ? manualInputElement.value : null;
-            console.log('手動入力要素の値:', manualInputValue, '(型:', typeof manualInputValue, ')');
-
-            // 有効なユーザー名を決定（ファイル優先、次に手動入力、最後にUnknown）
+            // ユーザー名を確実に取得（送信時に直接フィールドから取得）
             let effectiveUserName = 'Unknown';
             let inputMethod = 'manual';
             
-            console.log('=== ユーザー名決定プロセス開始 ===');
-            
+            // 1. ファイルから読み込まれたユーザー名をチェック
             if (currentUserName && currentUserName.trim().length > 0) {
-                // ファイルから読み込んだ場合
                 effectiveUserName = currentUserName.trim();
                 inputMethod = 'file';
-                console.log('✅ ファイルから取得:', effectiveUserName);
-            } else if (manualUserName && manualUserName.trim().length > 0) {
-                // 手動入力の場合（変数から）
-                effectiveUserName = manualUserName.trim();
-                inputMethod = 'manual';
-                console.log('✅ 変数から手動入力取得:', effectiveUserName);
-            } else if (manualInputValue && manualInputValue.trim().length > 0) {
-                // 手動入力の場合（直接取得）
-                effectiveUserName = manualInputValue.trim();
-                inputMethod = 'manual';
-                console.log('✅ 要素から直接手動入力取得:', effectiveUserName);
-                // 変数も更新
-                manualUserName = effectiveUserName;
             } else {
-                console.log('❌ ユーザー名が見つからない、Unknownを使用');
-                console.log('  - currentUserName: empty or null');
-                console.log('  - manualUserName: empty or null');
-                console.log('  - manualInputValue: empty or null');
+                // 2. 手動入力フィールドから直接取得
+                const manualInputElement = document.getElementById('manualNameInput');
+                if (manualInputElement && manualInputElement.value && manualInputElement.value.trim().length > 0) {
+                    effectiveUserName = manualInputElement.value.trim();
+                    inputMethod = 'manual';
+                }
             }
 
-            console.log('=== 最終決定値 ===');
-            console.log('effectiveUserName:', effectiveUserName);
-            console.log('inputMethod:', inputMethod);
-            console.log('timestamp:', timestamp);
+            // デバッグ情報を画面に表示
+            const debugText = `ユーザー名: ${effectiveUserName} (${inputMethod})`;
+            updateStatus(`送信準備中... ${debugText}`, 'waiting');
+            
+            // 少し待ってから送信（ユーザーが確認できるように）
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
             try {
                 let statusMessage = 'チェックイン処理中...';
@@ -546,44 +523,16 @@
                     device: 'Android NFC'
                 };
 
-                console.log('=== 最終送信データ ===');
-                console.log('sendData:', JSON.stringify(sendData, null, 2));
-
-                // URLパラメータを個別に構築
-                const params = {
+                // URLパラメータを構築
+                const params = new URLSearchParams({
                     timestamp: timestamp,
                     action: 'checkin',
                     userName: effectiveUserName,
                     inputMethod: inputMethod,
                     device: 'Android NFC'
-                };
+                });
                 
-                console.log('=== URLパラメータ構築 ===');
-                
-                // 各パラメータを個別にエンコード
-                const paramPairs = [];
-                for (const [key, value] of Object.entries(params)) {
-                    const encodedKey = encodeURIComponent(key);
-                    const encodedValue = encodeURIComponent(value);
-                    paramPairs.push(`${encodedKey}=${encodedValue}`);
-                    console.log(`${key}: "${value}" → ${encodedKey}=${encodedValue}`);
-                }
-                
-                const paramString = paramPairs.join('&');
-                const getUrl = `${url}?${paramString}`;
-                
-                console.log('=== 最終URL ===');
-                console.log('getUrl:', getUrl);
-                
-                // 送信前の最終確認（重要）
-                console.log('=== 送信前最終確認 ===');
-                console.log('送信するuserName:', `"${effectiveUserName}"`);
-                console.log('userNameがUnknownか？', effectiveUserName === 'Unknown');
-                
-                if (effectiveUserName === 'Unknown') {
-                    console.log('⚠️ 警告: userNameがUnknownのまま送信されます');
-                    console.log('⚠️ 手動入力フィールドを確認してください');
-                }
+                const getUrl = `${url}?${params.toString()}`;
                 
                 // 送信
                 await fetch(getUrl, {
@@ -591,12 +540,12 @@
                     mode: 'no-cors'
                 });
                 
-                console.log('送信完了');
-                
                 // 成功メッセージ
-                let successMessage = `✅ チェックイン完了！時刻: ${timestamp}`;
+                let successMessage = `✅ チェックイン完了！`;
                 if (effectiveUserName !== 'Unknown') {
                     successMessage = `😊 ${effectiveUserName}さん、チェックイン完了！`;
+                } else {
+                    successMessage = `✅ チェックイン完了！（ユーザー名なし）`;
                 }
                 updateStatus(successMessage, 'success');
                 
@@ -613,8 +562,6 @@
                 };
 
             } catch (error) {
-                console.error('送信エラー:', error);
-                
                 const errorData = {
                     error: error.message,
                     action: 'checkin',
@@ -623,7 +570,7 @@
                     url: url
                 };
                 
-                updateStatus(`❌ チェックイン送信失敗: ${error.message}`, 'error');
+                updateStatus(`❌ チェックイン送信失敗`, 'error');
                 return { 
                     sendData: { 
                         timestamp: timestamp, 
